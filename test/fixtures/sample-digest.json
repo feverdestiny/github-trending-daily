@@ -1,0 +1,30 @@
+{
+  "date": "2026-01-01",
+  "fetchedAt": "2026-01-01T00:00:00.000Z",
+  "source": "https://github.com/trending?since=daily",
+  "sample": true,
+  "repos": [
+    {
+      "rank": 1,
+      "owner": "fmtlib",
+      "name": "fmt",
+      "fullName": "fmtlib/fmt",
+      "url": "https://github.com/fmtlib/fmt",
+      "description": "A modern formatting library（示例数据，非实时榜单）",
+      "language": "C++",
+      "stars": 25151,
+      "starsToday": 963
+    },
+    {
+      "rank": 2,
+      "owner": "vercel",
+      "name": "next.js",
+      "fullName": "vercel/next.js",
+      "url": "https://github.com/vercel/next.js",
+      "description": "The React Framework（示例数据，非实时榜单）",
+      "language": "JavaScript",
+      "stars": 132004,
+      "starsToday": 1204
+    }
+  ]
+}
