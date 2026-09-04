@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Trending repositories on GitHub today · GitHub</title>
+  </head>
+  <body>
+    <!--
+      精简自 github.com/trending 的真实结构（2026-09）：
+      每条热门仓库是 article.Box-row。选择器可能随 GitHub 改版失效。
+    -->
+    <article class="Box-row">
+      <h2 class="h3 lh-condensed">
+        <a href="/fmtlib/fmt" class="Link">
+          <span class="text-normal">fmtlib /</span>
+          fmt
+        </a>
+      </h2>
+      <p class="col-9 color-fg-muted my-1">A modern formatting library</p>
+      <div class="f6 color-fg-muted mt-2">
+        <span itemprop="programmingLanguage">C++</span>
+        <a href="/fmtlib/fmt/stargazers" class="Link Link--muted">25,151</a>
+        <a href="/fmtlib/fmt/forks" class="Link Link--muted">3,018</a>
+        <span class="d-inline-block float-sm-right">963 stars today</span>
+      </div>
+    </article>
+
+    <article class="Box-row">
+      <h2 class="h3 lh-condensed">
+        <a href="/vercel/next.js" class="Link">
+          <span class="text-normal">vercel /</span>
+          next.js
+        </a>
+      </h2>
+      <p class="col-9 color-fg-muted my-1">The React Framework</p>
+      <div class="f6 color-fg-muted mt-2">
+        <span itemprop="programmingLanguage">JavaScript</span>
+        <a href="/vercel/next.js/stargazers" class="Link Link--muted">132,004</a>
+        <span class="d-inline-block float-sm-right">1,204 stars today</span>
+      </div>
+    </article>
+
+    <!-- 缺少仓库链接的残缺卡片，解析器应跳过而不是整页失败 -->
+    <article class="Box-row">
+      <p>Sponsored placeholder without a repo link</p>
+    </article>
+  </body>
+</html>
