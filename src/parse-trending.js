@@ -42,6 +42,7 @@ function parseRepoHref(href) {
     "login",
     "signup",
     "topics",
+    "trending",
     "explore",
     "settings",
     "orgs",
@@ -143,7 +144,7 @@ export function parseTrendingHtml(html) {
     const description = $card.find("p").first().text().replace(/\s+/g, " ").trim();
     const language = $card.find('[itemprop="programmingLanguage"]').first().text().trim();
 
-    // 总星标通常在指向 /stargazers 的链接里；没有链接时退回整卡数字。
+    // 总星标通常在指向 /stargazers 的链接里。
     const starsText = $card.find('a[href*="/stargazers"]').first().text();
     const stars = parseCount(starsText);
 
@@ -167,6 +168,19 @@ export function parseTrendingHtml(html) {
   if (repos.length === 0) {
     throw new ParseError(
       `Found ${cards.length} card(s) but none contained a valid owner/repo link. GitHub markup may have changed.`,
+    );
+  }
+
+  // 卡片很多但有效仓库很少，多半是广告块或结构已变，避免把残页当成完整榜单。
+  if (cards.length >= 3 && repos.length / cards.length < 0.5) {
+    throw new ParseError(
+      `High drop rate: parsed ${repos.length} repo(s) from ${cards.length} card(s). GitHub markup may have changed.`,
+    );
+  }
+
+  if (repos.every((repo) => repo.stars === 0 && repo.starsToday === 0)) {
+    throw new ParseError(
+      "Parsed repos but every star count is 0. Star selectors may have broken after a GitHub markup change.",
     );
   }
 

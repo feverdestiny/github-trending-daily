@@ -79,4 +79,40 @@ describe("parseTrendingHtml", () => {
     assert.equal(repo.language, "Rust");
     assert.equal(repo.stars, 1000);
   });
+
+  it("does not treat /trending/language links as repositories", () => {
+    const html = `
+      <article class="Box-row">
+        <a href="/trending/python?since=daily">Python</a>
+        <span>12 stars today</span>
+      </article>
+    `;
+    assert.throws(() => parseTrendingHtml(html), /none contained a valid owner\/repo/i);
+  });
+
+  it("throws when every parsed repo has zero stars", () => {
+    const html = `
+      <article class="Box-row">
+        <h2><a href="/owner/one">owner / one</a></h2>
+      </article>
+      <article class="Box-row">
+        <h2><a href="/owner/two">owner / two</a></h2>
+      </article>
+    `;
+    assert.throws(() => parseTrendingHtml(html), /star count is 0/i);
+  });
+
+  it("throws when most cards cannot be parsed as repos", () => {
+    const html = `
+      <article class="Box-row"><p>ad one</p></article>
+      <article class="Box-row"><p>ad two</p></article>
+      <article class="Box-row"><p>ad three</p></article>
+      <article class="Box-row">
+        <h2><a href="/owner/only">owner / only</a></h2>
+        <a href="/owner/only/stargazers">10</a>
+        <span>1 stars today</span>
+      </article>
+    `;
+    assert.throws(() => parseTrendingHtml(html), /drop rate/i);
+  });
 });

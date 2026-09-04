@@ -7,6 +7,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { utcDate } from "./fetch-trending.js";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -336,7 +337,7 @@ export function generateSite(options = {}) {
       "./assets/style.css",
       listPage(
         latest,
-        `${latest.date} 今日热门`,
+        latest.date === utcDate() ? `${latest.date} 今日热门` : `${latest.date} 最新归档`,
         { homeHref: "./", archiveHref: "./archive/", current: "home" },
         `<p class="lede"><a href="./days/${latest.date}/">查看当日独立页面</a></p>`,
       ),
@@ -364,7 +365,7 @@ export function generateSite(options = {}) {
       ${header({ homeHref: "../", archiveHref: "./", current: "archive" })}
       <main class="wrap">
         <section class="hero">
-          <p class="eyebrow">Archives</p>
+          <p class="eyebrow">归档</p>
           <h1>全部日报</h1>
           <p class="lede">共 ${digests.length} 天，最新在上。</p>
         </section>

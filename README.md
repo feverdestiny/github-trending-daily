@@ -7,7 +7,7 @@
 ## 页面
 
 - 首页：当天（或最新一天）的热门仓库列表
-- [归档](./site/archive/)：所有已保存的日报，最新在上
+- [归档](https://feverdestiny.github.io/github-trending-daily/archive/)：所有已保存的日报，最新在上
 - 每日页：`/days/YYYY-MM-DD/`
 
 每条卡片包含排名、仓库全名（外链到 GitHub）、简介、主语言、总星标、当日新增星标。
