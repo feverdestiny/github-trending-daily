@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <title>Trending repositories on GitHub today · GitHub</title>
+  </head>
+  <body>
+    <!--
+      解析加固 fixture：与 trending-sample.html 相同的卡片骨架，
+      但日增量分别是 本地化文案 / 缺失 / 结构变体。
+      解析结果不应受文案语言影响，也不能因为缺增量或类名变化而失败。
+    -->
+    <!-- ① 本地化文案：数字嵌在中文里，解析应只取数字 -->
+    <article class="Box-row">
+      <h2 class="h3 lh-condensed">
+        <a href="/vuejs/core" class="Link">
+          <span class="text-normal">vuejs /</span>
+          core
+        </a>
+      </h2>
+      <p class="col-9 color-fg-muted my-1">渐进式 JavaScript 框架</p>
+      <div class="f6 color-fg-muted mt-2">
+        <span itemprop="programmingLanguage">TypeScript</span>
+        <a href="/vuejs/core/stargazers" class="Link Link--muted">49,380</a>
+        <a href="/vuejs/core/forks" class="Link Link--muted">7,204</a>
+        <span class="d-inline-block float-sm-right">1,024 位用户今天星标了该仓库</span>
+      </div>
+    </article>
+
+    <!-- ② 缺增量：只有总星标和 fork，没有任何日增量元素 → starsToday 应为 0 -->
+    <article class="Box-row">
+      <h2 class="h3 lh-condensed">
+        <a href="/denoland/deno" class="Link">
+          <span class="text-normal">denoland /</span>
+          deno
+        </a>
+      </h2>
+      <p class="col-9 color-fg-muted my-1">A modern runtime for JavaScript and TypeScript</p>
+      <div class="f6 color-fg-muted mt-2">
+        <span itemprop="programmingLanguage">Rust</span>
+        <a href="/denoland/deno/stargazers" class="Link Link--muted">102,417</a>
+        <a href="/denoland/deno/forks" class="Link Link--muted">8,902</a>
+      </div>
+    </article>
+
+    <!-- ③ 结构变体：日增量是链接，与总星标相同的 /stargazers href 模式，
+         但类名完全不同且无 float-sm-right，文案为中文。
+         按文档顺序总星标在前、日增量在后。 -->
+    <article class="Box-row">
+      <h2 class="h3 lh-condensed">
+        <a href="/tokio-rs/tokio" class="Link">
+          <span class="text-normal">tokio-rs /</span>
+          tokio
+        </a>
+      </h2>
+      <div class="f6 color-fg-muted mt-2">
+        <span itemprop="programmingLanguage">Rust</span>
+        <a href="/tokio-rs/tokio/stargazers" class="Link Link--muted d-inline-block mr-3">28,913</a>
+        <a href="/tokio-rs/tokio/stargazers" class="counter link-gray mt-2">今天新增 77</a>
+      </div>
+    </article>
+  </body>
+</html>
