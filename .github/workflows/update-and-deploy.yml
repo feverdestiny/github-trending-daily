@@ -10,6 +10,7 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  issues: write
 
 concurrency:
   group: pages
@@ -66,3 +67,46 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  # 失败时创建/更新固定标题的告警 issue；下一次成功运行后自动关闭。
+  alert:
+    name: Update failure alert issue
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Close alert issue on success
+        if: needs.build.result == 'success' && needs.deploy.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          ISSUE="$(gh issue list --state open --json number,title --jq '.[] | select(.title == "每日更新失败") | .number' | head -n 1)"
+          if [ -n "$ISSUE" ]; then
+            gh issue close "$ISSUE" --comment "今日更新已成功完成，自动关闭本告警。成功运行：${RUN_URL}"
+          else
+            echo "No open 每日更新失败 issue to close"
+          fi
+
+      - name: Create or update alert issue on failure
+        if: needs.build.result == 'failure' || needs.deploy.result == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          DATE="$(date -u +%Y-%m-%d)"
+          BODY="每日更新失败（${DATE} UTC）。
+
+          失败运行：${RUN_URL}
+
+          请查看该运行的日志定位原因；修复后本 issue 会在下一次成功运行时自动关闭。"
+          ISSUE="$(gh issue list --state open --json number,title --jq '.[] | select(.title == "每日更新失败") | .number' | head -n 1)"
+          if [ -n "$ISSUE" ]; then
+            gh issue comment "$ISSUE" --body "$BODY"
+          else
+            gh issue create --title "每日更新失败" --body "$BODY"
+          fi
