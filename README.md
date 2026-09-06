@@ -1,8 +1,10 @@
 # GitHub 每日热门
 
+[![Update trending and deploy Pages](https://github.com/feverdestiny/github-trending-daily/actions/workflows/update-and-deploy.yml/badge.svg)](https://github.com/feverdestiny/github-trending-daily/actions/workflows/update-and-deploy.yml)
+
 每天抓取一次 [GitHub Trending](https://github.com/trending?since=daily)（全语言、按日），把结果存成 JSON 归档，并生成静态网站发布到 GitHub Pages。
 
-在线地址：<https://feverdestiny.github.io/github-trending-daily/>
+**在线地址：<https://feverdestiny.github.io/github-trending-daily/>**
 
 ## 页面
 
