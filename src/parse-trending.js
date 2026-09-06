@@ -15,7 +15,8 @@ export class ParseError extends Error {
 }
 
 /**
- * 把 "25,151" / "963 stars today" 这类文案里的第一个整数解析出来。
+ * 把 "25,151" / "963 位用户今天星标了该仓库" 这类文案里的第一个整数解析出来。
+ * 只取数字、无视周边文案,因此对界面语言不敏感。
  * @param {string} text
  * @returns {number}
  */
@@ -101,6 +102,34 @@ function selectRepoCards($) {
 }
 
 /**
+ * 结构化提取「今日新增星标」,不依赖任何界面文案(英文或本地化)。
+ * 按可靠度依次尝试,命中即返回:
+ *   1. class 含 float-sm-right 的元素——GitHub 现行把日增量放在这个右浮动
+ *      元素里(span 或链接都兼容),属性比文案稳定;
+ *   2. 卡片里第二个指向 /stargazers 的链接——若日增量改成链接形态(与总星标
+ *      相同的 href 模式、不同类名),按文档顺序总星标在前、日增量在后。
+ * 文案只用于取数字(parseCount),本地化语言不影响结果。
+ * 找不到日增量时按既有 schema 约定返回 0。
+ * @param {import("cheerio").CheerioAPI} $
+ * @param {import("cheerio").Element} card
+ * @returns {number}
+ */
+function extractStarsToday($, card) {
+  const $card = $(card);
+
+  const candidates = [
+    ...$card.find('[class*="float-sm-right"]').toArray(),
+    ...$card.find('a[href*="/stargazers"]').toArray().slice(1),
+  ];
+
+  for (const el of candidates) {
+    const count = parseCount($(el).text());
+    if (count > 0) return count;
+  }
+  return 0;
+}
+
+/**
  * 解析 github.com/trending 的 HTML，返回稳定 schema 的仓库列表。
  * 残缺卡片会被跳过；若整页都解析不出有效仓库则抛出 ParseError。
  *
@@ -147,9 +176,8 @@ export function parseTrendingHtml(html) {
     const starsText = $card.find('a[href*="/stargazers"]').first().text();
     const stars = parseCount(starsText);
 
-    // 「N stars today」文案位置不固定，按文本匹配比死绑 float-sm-right 更稳。
-    const todayMatch = $card.text().match(/([\d,]+)\s*stars today/i);
-    const starsToday = todayMatch ? parseCount(todayMatch[1]) : 0;
+    // 日增量走结构化定位(见 extractStarsToday),不匹配任何界面文案。
+    const starsToday = extractStarsToday($, card);
 
     repos.push({
       rank: repos.length + 1,
