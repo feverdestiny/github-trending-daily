@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { enrichRepos } from "./enrich.js";
 import { ParseError, parseTrendingHtml } from "./parse-trending.js";
 
 export const TRENDING_URL = "https://github.com/trending?since=daily";
@@ -95,6 +96,14 @@ export async function fetchTrendingHtml(options = {}) {
  * 抓取并写入 data/YYYY-MM-DD.json。
  * 实抓失败（重试耗尽）时降级为仓库内置的示例数据，并在快照中显式标注
  * `sample: true`（站点据此显示「示例数据」，不会当成真实榜单发布）。
+ *
+ * 快照 Schema v2：解析完成后通过 GitHub REST API 为每个仓库就地补齐可选字段
+ * `topics: string[]`、`license: string | null`（SPDX id）、`ownerAvatarUrl: string | null`。
+ * 单仓库富集失败（404/限流/网络）只警告不抛出，该仓库不写入这三个字段——
+ * 字段缺省即「富集不可用」，因此 v1 旧快照（无这些字段）与 v2 永远兼容。
+ * 示例数据路径（显式 `--sample` 或实抓失败降级）不做富集：样本并非真实榜单，
+ * 且降级恰恰发生在网络不可用时，保持该路径完全离线。
+ *
  * @param {{
  *   dataDir?: string,
  *   now?: Date,
@@ -103,8 +112,14 @@ export async function fetchTrendingHtml(options = {}) {
  *   sample?: boolean,
  *   timeoutMs?: number,
  *   maxAttempts?: number,
- *   retryBaseMs?: number
- * }} [options]
+ *   retryBaseMs?: number,
+ *   enrich?: boolean,
+ *   githubClient?: (fullName: string) => Promise<import("./enrich.js").RepoMetadata>,
+ *   token?: string,
+ *   enrichTimeoutMs?: number
+ * }} [options] `githubClient` 注入 GitHub API 假客户端便于测试（票 02 的
+ *   注入点模式）；缺省时使用基于 fetch 的真实实现，鉴权取 `token` 或环境变量
+ *   GITHUB_TOKEN。`enrich: false` 可整体跳过富集。
  */
 export async function runFetch(options = {}) {
   const dataDir = options.dataDir ?? join(repoRoot, "data");
@@ -133,6 +148,15 @@ export async function runFetch(options = {}) {
     }
   }
   const repos = parseTrendingHtml(html);
+
+  if (!useSample && options.enrich !== false) {
+    await enrichRepos(repos, {
+      client: options.githubClient,
+      token: options.token,
+      timeoutMs: options.enrichTimeoutMs,
+      fetch: options.fetch,
+    });
+  }
 
   const digest = {
     date,

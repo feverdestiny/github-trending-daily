@@ -37,6 +37,9 @@ jobs:
 
       - name: Fetch trending and generate site
         run: npm run update
+        env:
+          # 供 GitHub REST API 元数据富集使用（topics/license/作者头像）。
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Commit data and generated site
         run: |

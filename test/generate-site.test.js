@@ -77,4 +77,56 @@ describe("generateSite", () => {
     const home = readFileSync(join(siteDir, "index.html"), "utf8");
     assert.match(home, /示例数据/);
   });
+
+  it("renders a mixed v1/v2 history without crashing", () => {
+    // v1 旧快照：没有富集字段；v2 快照：字段齐全，含"富集成功但值为空"的形态。
+    const v2Repo = {
+      ...sampleRepo,
+      topics: ["formatting", "text"],
+      license: "MIT",
+      ownerAvatarUrl: "https://avatars.githubusercontent.com/u/1?v=4",
+    };
+    const v2RepoEmptyEnrichment = {
+      ...sampleRepo,
+      rank: 2,
+      owner: "acme",
+      name: "bare",
+      fullName: "acme/bare",
+      url: "https://github.com/acme/bare",
+      topics: [],
+      license: null,
+      ownerAvatarUrl: null,
+    };
+
+    const root = mkdtempSync(join(tmpdir(), "trending-mixed-"));
+    const dataDir = join(root, "data");
+    const siteDir = join(root, "site");
+    mkdirSync(dataDir);
+    writeDigest(dataDir, "2026-09-03", [sampleRepo]); // v1：无 topics/license/ownerAvatarUrl
+    writeDigest(dataDir, "2026-09-04", [v2Repo, v2RepoEmptyEnrichment]); // v2
+
+    const { latestDate, dates } = generateSite({ dataDir, siteDir });
+
+    assert.equal(latestDate, "2026-09-04");
+    assert.deepEqual(dates, ["2026-09-04", "2026-09-03"]);
+
+    for (const relative of [
+      "index.html",
+      "archive/index.html",
+      "days/2026-09-03/index.html",
+      "days/2026-09-04/index.html",
+      "404.html",
+    ]) {
+      const html = readFileSync(join(siteDir, relative), "utf8");
+      assert.match(html, /<!DOCTYPE html>/);
+      assert.match(html, /<\/html>\s*$/);
+      assert.doesNotMatch(html, /undefined/);
+    }
+
+    const v2Day = readFileSync(join(siteDir, "days/2026-09-04/index.html"), "utf8");
+    assert.match(v2Day, /fmtlib\/fmt/);
+    assert.match(v2Day, /acme\/bare/);
+    const v1Day = readFileSync(join(siteDir, "days/2026-09-03/index.html"), "utf8");
+    assert.match(v1Day, /fmtlib\/fmt/);
+  });
 });
