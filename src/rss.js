@@ -1,3 +1,5 @@
+import { formatCount } from "./format.js";
+
 /**
  * Atom feed（订阅）：把最新一期榜单生成为一条标准 Atom XML。
  *
@@ -41,13 +43,6 @@ export function normalizeBaseUrl(siteUrl) {
   const trimmed = String(siteUrl ?? "").trim();
   const base = trimmed || SITE_URL;
   return base.endsWith("/") ? base : `${base}/`;
-}
-
-/**
- * @param {number} n
- */
-function formatCount(n) {
-  return Number(n || 0).toLocaleString("en-US");
 }
 
 /**

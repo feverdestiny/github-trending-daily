@@ -15,6 +15,7 @@ import {
   weekly,
 } from "./aggregate.js";
 import { buildTrendIndex, sortTrendLeaderboard } from "./trend-archive.js";
+import { formatCount } from "./format.js";
 import {
   FEED_PATH,
   generateAtomFeed,
@@ -39,13 +40,6 @@ export function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
-}
-
-/**
- * @param {number} n
- */
-function formatCount(n) {
-  return Number(n || 0).toLocaleString("en-US");
 }
 
 /**
