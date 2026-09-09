@@ -90,3 +90,15 @@ Schema v2 起每条仓库记录还可能带可选富集字段：`topics`（话�
 ## 注意
 
 这是对 GitHub **非官方 HTML** 的解析（cheerio），不是公开 API。页面结构一变，选择器就可能失效。解析器做了多层回退，并会在空页面 / 残缺 HTML 上抛出明确错误；若每日任务突然失败，优先对照 `https://github.com/trending?since=daily` 的 markup 更新 `src/parse-trending.js`。
+
+## 订阅（Atom feed）
+
+站点提供一条 Atom feed，内容始终是最新一期榜单，每个条目包含排名、仓库全名、链接、简介、语言、总星标与当日新增星标：
+
+```
+https://feverdestiny.github.io/github-trending-daily/feed.xml
+```
+
+把上面的地址粘贴进任意 RSS/Atom 阅读器（如 Feedly、Inoreader、NetNewsWire、Folo）即可订阅，每天榜单更新后自动收到最新一期。也可以在浏览器里直接打开站点首页，`<head>` 中带有 `<link rel="alternate" type="application/atom+xml">`，多数阅读器扩展能自动发现。
+
+Fork 自部署时，feed 里的绝对链接来自生成器的 `siteUrl` 选项（默认是本仓库的 Pages 地址）：在调用 `generateSite({ siteUrl })` 时传入你自己的站点地址即可。
