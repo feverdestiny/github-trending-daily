@@ -37,16 +37,26 @@ jobs:
 
       - name: Fetch trending and generate site
         run: npm run update
+        env:
+          # 供 GitHub REST API 元数据富集使用（topics/license/作者头像）。
+          GITHUB_TOKEN: ${{ github.token }}
+          # 可选：AI 一句话导读（前 5 名，任意 OpenAI 兼容端点）。
+          # 三个 secret 都未设置/为空时功能整体关闭，站点照常生成。
+          TLDR_API_KEY: ${{ secrets.TLDR_API_KEY }}
+          TLDR_BASE_URL: ${{ secrets.TLDR_BASE_URL }}
+          TLDR_MODEL: ${{ secrets.TLDR_MODEL }}
 
-      - name: Commit data and generated site
+      - name: Commit data snapshots
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data site
+          # 站点不再入库（.gitignore 忽略 site/），只提交每日 JSON 快照；
+          # 生成的 site/ 由下面的 Pages artifact 直接上传部署。
+          git add data
           DATE="$(date -u +%Y-%m-%d)"
           if git diff --staged --quiet; then
-            echo "No data/site changes to commit"
+            echo "No data changes to commit"
           else
             git commit -m "chore: update trending ${DATE}"
             git push
