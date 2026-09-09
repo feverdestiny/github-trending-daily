@@ -87,15 +87,15 @@ function languageChip(entry) {
  * 读取 data 目录下全部日归档，按日期新到旧排序。
  * @param {string} dataDir
  */
-export function loadDigests(dataDir) {
+export function loadSnapshots(dataDir) {
   const files = readdirSync(dataDir)
     .filter((name) => /^\d{4}-\d{2}-\d{2}\.json$/.test(name))
     .sort()
     .reverse();
 
   return files.map((name) => {
-    const digest = JSON.parse(readFileSync(join(dataDir, name), "utf8"));
-    return digest;
+    const snapshot = JSON.parse(readFileSync(join(dataDir, name), "utf8"));
+    return snapshot;
   });
 }
 
@@ -257,33 +257,33 @@ function repoCard(repo, trend = null) {
 }
 
 /**
- * @param {object} digest
+ * @param {object} snapshot
  * @param {Map<string, object>|null} [trends] fullName → 截至当日的上榜档案
  */
-function repoCards(digest, trends = null) {
-  if (!digest.repos?.length) {
+function repoCards(snapshot, trends = null) {
+  if (!snapshot.repos?.length) {
     return `<p class="empty">当日暂无数据。</p>`;
   }
 
-  return digest.repos
+  return snapshot.repos
     .map((repo) => repoCard(repo, trends ? trends.get(repo.fullName) ?? null : null))
     .join("\n");
 }
 
 /**
- * @param {object} digest
+ * @param {object} snapshot
  * @param {string} heading
  * @param {{ homeHref: string, trendsHref: string, current: "home" | "day" }} nav
  * @param {string} extraBanner
  * @param {string} afterList
  * @param {Map<string, object>|null} [trends] 传入时为 currentStreak ≥ 2 的仓库渲染连续上榜徽标
  */
-function listPage(digest, heading, nav, extraBanner = "", afterList = "", trends = null) {
-  const sampleBanner = digest.sample
+function listPage(snapshot, heading, nav, extraBanner = "", afterList = "", trends = null) {
+  const sampleBanner = snapshot.sample
     ? `<p class="banner sample">当前为<strong>示例数据</strong>，不是当天的线上抓取结果。</p>`
     : "";
-  const fetched = digest.fetchedAt
-    ? new Date(digest.fetchedAt).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, " UTC")
+  const fetched = snapshot.fetchedAt
+    ? new Date(snapshot.fetchedAt).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, " UTC")
     : "";
 
   return `
@@ -292,12 +292,12 @@ function listPage(digest, heading, nav, extraBanner = "", afterList = "", trends
     <section class="hero">
       <p class="eyebrow">GitHub Trending · 全语言 · 按日归档</p>
       <h1>${escapeHtml(heading)}</h1>
-      <p class="lede">共 ${digest.repos?.length ?? 0} 个仓库${fetched ? ` · 抓取于 ${escapeHtml(fetched)}` : ""}</p>
+      <p class="lede">共 ${snapshot.repos?.length ?? 0} 个仓库${fetched ? ` · 抓取于 ${escapeHtml(fetched)}` : ""}</p>
       ${sampleBanner}
       ${extraBanner}
     </section>
     <section class="cards" aria-label="仓库榜单">
-      ${repoCards(digest, trends)}
+      ${repoCards(snapshot, trends)}
     </section>
     ${afterList}
   </main>
@@ -467,13 +467,13 @@ function archiveItem(item, fromPage) {
 
 /**
  * 单个归档分页：按月分组的日期列表 + 上一页/下一页 + 页码指示。
- * @param {object[]} digests 新到旧排序的全部日归档
+ * @param {object[]} snapshots 新到旧排序的全部日归档
  * @param {number} pageNum
  * @param {number} pageCount
  */
-function archiveBody(digests, pageNum, pageCount) {
+function archiveBody(snapshots, pageNum, pageCount) {
   const start = (pageNum - 1) * ARCHIVE_PAGE_SIZE;
-  const pageDays = digests.slice(start, start + ARCHIVE_PAGE_SIZE);
+  const pageDays = snapshots.slice(start, start + ARCHIVE_PAGE_SIZE);
 
   const groups = [];
   for (const item of pageDays) {
@@ -514,7 +514,7 @@ function archiveBody(digests, pageNum, pageCount) {
         <section class="hero">
           <p class="eyebrow">归档 · 按月分组</p>
           <h1>全部日报</h1>
-          <p class="lede">共 ${digests.length} 天，最新在上。</p>
+          <p class="lede">共 ${snapshots.length} 天，最新在上。</p>
         </section>
         ${groupHtml}
         ${pager}
@@ -598,9 +598,9 @@ export function generateSite(options = {}) {
   const siteDir = options.siteDir ?? join(repoRoot, "site");
   const siteUrl = normalizeBaseUrl(options.siteUrl ?? SITE_URL);
   const feedHref = `${siteUrl}${FEED_PATH}`;
-  const digests = loadDigests(dataDir);
+  const snapshots = loadSnapshots(dataDir);
 
-  if (digests.length === 0) {
+  if (snapshots.length === 0) {
     throw new Error(`No daily JSON files found in ${dataDir}`);
   }
 
@@ -622,14 +622,14 @@ export function generateSite(options = {}) {
   writeFileSync(join(siteDir, "assets/style.css"), SITE_CSS);
   writeFileSync(
     join(siteDir, FEED_PATH),
-    generateAtomFeed({ days: digests, siteUrl }),
+    generateAtomFeed({ days: snapshots, siteUrl }),
   );
 
-  const latest = digests[0];
-  const dates = digests.map((item) => item.date);
+  const latest = snapshots[0];
+  const dates = snapshots.map((item) => item.date);
 
   // 上榜档案：全部历史快照聚合（供总榜页与首页徽标使用）。
-  const trendIndex = buildTrendIndex(digests);
+  const trendIndex = buildTrendIndex(snapshots);
 
   writeFileSync(
     join(siteDir, "index.html"),
@@ -654,13 +654,13 @@ export function generateSite(options = {}) {
     page(
       "趋势档案 · GitHub 每日热门",
       "./assets/style.css",
-      trendsBody(trendIndex, digests.length),
+      trendsBody(trendIndex, snapshots.length),
       feedHref,
     ),
   );
 
   // 归档分页：第 1 页 = archive/index.html（最新），其余在 archive/page/N/。
-  const pageCount = Math.max(1, Math.ceil(digests.length / ARCHIVE_PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(snapshots.length / ARCHIVE_PAGE_SIZE));
   for (let pageNum = 1; pageNum <= pageCount; pageNum += 1) {
     const isRootPage = pageNum === 1;
     const dir = isRootPage
@@ -673,17 +673,17 @@ export function generateSite(options = {}) {
       page(
         `归档${isRootPage ? "" : ` · 第 ${pageNum} 页`} · GitHub 每日热门`,
         isRootPage ? "../assets/style.css" : "../../../assets/style.css",
-        archiveBody(digests, pageNum, pageCount),
+        archiveBody(snapshots, pageNum, pageCount),
         feedHref,
       ),
     );
   }
 
-  for (let i = 0; i < digests.length; i += 1) {
-    const digest = digests[i];
-    const newer = digests[i - 1];
-    const older = digests[i + 1];
-    const dayDir = join(siteDir, "days", digest.date);
+  for (let i = 0; i < snapshots.length; i += 1) {
+    const snapshot = snapshots[i];
+    const newer = snapshots[i - 1];
+    const older = snapshots[i + 1];
+    const dayDir = join(siteDir, "days", snapshot.date);
     mkdirSync(dayDir, { recursive: true });
 
     const navLinks = `
@@ -691,19 +691,19 @@ export function generateSite(options = {}) {
         <span>${newer ? `<a href="../${newer.date}/">← ${escapeHtml(newer.date)}</a>` : ""}</span>
         <span>${older ? `<a href="../${older.date}/">${escapeHtml(older.date)} →</a>` : ""}</span>
       </nav>
-      <p class="data-line">本日数据 JSON：<a href="../../data/${escapeHtml(digest.date)}.json">${escapeHtml(digest.date)}.json</a></p>`;
+      <p class="data-line">本日数据 JSON：<a href="../../data/${escapeHtml(snapshot.date)}.json">${escapeHtml(snapshot.date)}.json</a></p>`;
 
-    // 单日页徽标用"截至当日"的前缀档案：digests 新到旧排序，slice(i) 即当日及更早的全部快照。
-    const prefixTrends = buildTrendIndex(digests.slice(i));
+    // 单日页徽标用"截至当日"的前缀档案：snapshots 新到旧排序，slice(i) 即当日及更早的全部快照。
+    const prefixTrends = buildTrendIndex(snapshots.slice(i));
 
     writeFileSync(
       join(dayDir, "index.html"),
       page(
-        `${digest.date} · GitHub 每日热门`,
+        `${snapshot.date} · GitHub 每日热门`,
         "../../assets/style.css",
         listPage(
-          digest,
-          digest.date,
+          snapshot,
+          snapshot.date,
           {
             homeHref: "../../",
             trendsHref: "../../trends/",
@@ -720,8 +720,8 @@ export function generateSite(options = {}) {
 
   // 多维榜单：周/月滚动聚合与语言子榜（聚合逻辑在 src/aggregate.js，纯函数）。
   const periodBoards = [
-    { key: "weekly", heading: "周榜", windowDays: 7, entries: weekly(digests), window: rollingWindow(digests, 7) },
-    { key: "monthly", heading: "月榜", windowDays: 30, entries: monthly(digests), window: rollingWindow(digests, 30) },
+    { key: "weekly", heading: "周榜", windowDays: 7, entries: weekly(snapshots), window: rollingWindow(snapshots, 7) },
+    { key: "monthly", heading: "月榜", windowDays: 30, entries: monthly(snapshots), window: rollingWindow(snapshots, 30) },
   ];
   for (const { key, heading, windowDays, entries, window } of periodBoards) {
     const emptyMessage =
@@ -751,7 +751,7 @@ export function generateSite(options = {}) {
   }
 
   // 语言子榜：索引页 + 每个入选语言一页（/languages/<slug>/）。
-  const boards = languageBoards(digests);
+  const boards = languageBoards(snapshots);
   mkdirSync(join(siteDir, "languages"), { recursive: true });
   writeFileSync(
     join(siteDir, "languages/index.html"),

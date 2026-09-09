@@ -4,7 +4,7 @@ import { formatCount } from "./format.js";
  * Atom feed（订阅）：把最新一期榜单生成为一条标准 Atom XML。
  *
  * 约定（与实现保持一致，改动需同步测试）：
- * - `days` 为按日期新到旧排序的快照数组（即 `loadDigests` 的返回值），
+ * - `days` 为按日期新到旧排序的快照数组（即 `loadSnapshots` 的返回值），
  *   只取 `days[0]`（最新一期）生成条目。
  * - 最新一天 `repos` 为空数组时：输出一条合法但没有任何 `<entry>` 的 feed
  *   （保持 feed URL 永远可订阅，而不是跳过生成留下旧文件）。
@@ -85,7 +85,7 @@ function entryHtml(repo) {
  *   days: object[],
  *   siteUrl?: string,
  * }} options
- *   - days: 快照数组，新到旧排序（loadDigests 的返回值），只读 days[0]
+ *   - days: 快照数组，新到旧排序（loadSnapshots 的返回值），只读 days[0]
  *   - siteUrl: 站点绝对地址（feed id / 链接 / 条目 id 的 base），默认 SITE_URL
  * @returns {string} Atom XML 文本
  */

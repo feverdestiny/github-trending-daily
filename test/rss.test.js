@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { loadDigests, generateSite } from "../src/generate-site.js";
+import { loadSnapshots, generateSite } from "../src/generate-site.js";
 import {
   generateAtomFeed,
   normalizeBaseUrl,

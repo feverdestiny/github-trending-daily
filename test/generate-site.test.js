@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import { generateSite } from "../src/generate-site.js";
 
-function writeDigest(dir, date, repos, extra = {}) {
+function writeSnapshot(dir, date, repos, extra = {}) {
   writeFileSync(
     join(dir, `${date}.json`),
     JSON.stringify({
@@ -50,8 +50,8 @@ describe("generateSite", () => {
     const siteDir = join(root, "site");
     mkdirSync(dataDir);
 
-    writeDigest(dataDir, "2026-09-03", [sampleRepo]);
-    writeDigest(dataDir, "2026-09-04", [
+    writeSnapshot(dataDir, "2026-09-03", [sampleRepo]);
+    writeSnapshot(dataDir, "2026-09-04", [
       { ...sampleRepo, description: "<script>alert(1)</script>" },
     ]);
 
@@ -79,12 +79,12 @@ describe("generateSite", () => {
     assert.match(day, /href="\.\.\/\.\.\/"/);
   });
 
-  it("labels sample digests so they are not shown as live data", () => {
+  it("labels sample snapshots so they are not shown as live data", () => {
     const root = mkdtempSync(join(tmpdir(), "trending-sample-"));
     const dataDir = join(root, "data");
     const siteDir = join(root, "site");
     mkdirSync(dataDir);
-    writeDigest(dataDir, "2026-01-01", [sampleRepo], { sample: true });
+    writeSnapshot(dataDir, "2026-01-01", [sampleRepo], { sample: true });
 
     generateSite({ dataDir, siteDir });
     const home = readFileSync(join(siteDir, "index.html"), "utf8");
@@ -109,8 +109,8 @@ describe("generateSite", () => {
     const dataDir = join(root, "data");
     const siteDir = join(root, "site");
     mkdirSync(dataDir);
-    writeDigest(dataDir, "2026-09-03", [sampleRepo]); // v1：无 topics/license/ownerAvatarUrl
-    writeDigest(dataDir, "2026-09-04", [v2Repo, v2RepoEmptyEnrichment]); // v2
+    writeSnapshot(dataDir, "2026-09-03", [sampleRepo]); // v1：无 topics/license/ownerAvatarUrl
+    writeSnapshot(dataDir, "2026-09-04", [v2Repo, v2RepoEmptyEnrichment]); // v2
 
     const { latestDate, dates } = generateSite({ dataDir, siteDir });
 
@@ -142,8 +142,8 @@ describe("generateSite", () => {
     const dataDir = join(root, "data");
     const siteDir = join(root, "site");
     mkdirSync(dataDir);
-    writeDigest(dataDir, "2026-09-03", [sampleRepo]); // v1
-    writeDigest(dataDir, "2026-09-04", [v2Repo]); // v2
+    writeSnapshot(dataDir, "2026-09-03", [sampleRepo]); // v1
+    writeSnapshot(dataDir, "2026-09-04", [v2Repo]); // v2
 
     generateSite({ dataDir, siteDir });
     const home = readFileSync(join(siteDir, "index.html"), "utf8");
@@ -195,8 +195,8 @@ describe("generateSite", () => {
     mkdirSync(dataDir);
 
     const { starsToday, ...v1NoDelta } = sampleRepo; // v1：无 starsToday 字段
-    writeDigest(dataDir, "2026-09-03", [v1NoDelta]);
-    writeDigest(dataDir, "2026-09-04", [{ ...sampleRepo, starsToday: 0 }]);
+    writeSnapshot(dataDir, "2026-09-03", [v1NoDelta]);
+    writeSnapshot(dataDir, "2026-09-04", [{ ...sampleRepo, starsToday: 0 }]);
 
     generateSite({ dataDir, siteDir });
     const v1Day = readFileSync(join(siteDir, "days/2026-09-03/index.html"), "utf8");
@@ -219,7 +219,7 @@ describe("generateSite", () => {
     const startMs = Date.UTC(2026, 6, 1);
     for (let i = 0; i < 45; i += 1) {
       const date = new Date(startMs + i * 86400000).toISOString().slice(0, 10);
-      writeDigest(dataDir, date, [sampleRepo]);
+      writeSnapshot(dataDir, date, [sampleRepo]);
     }
 
     generateSite({ dataDir, siteDir });
@@ -261,7 +261,7 @@ describe("generateSite", () => {
     const startMs = Date.UTC(2026, 6, 1);
     for (let i = 0; i < 45; i += 1) {
       const date = new Date(startMs + i * 86400000).toISOString().slice(0, 10);
-      writeDigest(dataDir, date, [sampleRepo]);
+      writeSnapshot(dataDir, date, [sampleRepo]);
     }
 
     generateSite({ dataDir, siteDir });
@@ -312,8 +312,8 @@ describe("generateSite", () => {
     const dataDir = join(root, "data");
     const siteDir = join(root, "site");
     mkdirSync(dataDir);
-    writeDigest(dataDir, "2026-09-03", [sampleRepo]);
-    writeDigest(dataDir, "2026-09-04", [sampleRepo]);
+    writeSnapshot(dataDir, "2026-09-03", [sampleRepo]);
+    writeSnapshot(dataDir, "2026-09-04", [sampleRepo]);
 
     generateSite({ dataDir, siteDir });
 
@@ -329,8 +329,8 @@ describe("generateSite", () => {
     const dataDir = join(root, "data");
     const siteDir = join(root, "site");
     mkdirSync(dataDir);
-    writeDigest(dataDir, "2026-09-03", [sampleRepo]);
-    writeDigest(dataDir, "2026-09-04", [v2Repo]);
+    writeSnapshot(dataDir, "2026-09-03", [sampleRepo]);
+    writeSnapshot(dataDir, "2026-09-04", [v2Repo]);
 
     generateSite({ dataDir, siteDir });
 
@@ -358,7 +358,7 @@ describe("generateSite", () => {
       license: 'MIT"><script>',
       ownerAvatarUrl: 'https://evil.example/a.png" onerror="alert(1)',
     };
-    writeDigest(dataDir, "2026-09-04", [evilRepo]);
+    writeSnapshot(dataDir, "2026-09-04", [evilRepo]);
 
     generateSite({ dataDir, siteDir });
     const day = readFileSync(join(siteDir, "days/2026-09-04/index.html"), "utf8");
@@ -391,7 +391,7 @@ describe("generateSite", () => {
     const dataDir = join(root, "data");
     const siteDir = join(root, "site");
     mkdirSync(dataDir);
-    writeDigest(dataDir, "2026-09-04", [sampleRepo]);
+    writeSnapshot(dataDir, "2026-09-04", [sampleRepo]);
 
     generateSite({ dataDir, siteDir });
     const home = readFileSync(join(siteDir, "index.html"), "utf8");
@@ -434,8 +434,8 @@ describe("generateSite", () => {
       starsToday,
     });
     // 跨月窗口：最新 2026-09-03，7 天窗口 = 2026-08-28..2026-09-03（首日恰在窗口边缘）
-    writeDigest(dataDir, "2026-08-28", [fmt(100), jsRepo(10, 2)]);
-    writeDigest(dataDir, "2026-09-03", [
+    writeSnapshot(dataDir, "2026-08-28", [fmt(100), jsRepo(10, 2)]);
+    writeSnapshot(dataDir, "2026-09-03", [
       fmt(100),
       jsRepo(50, 2),
       { ...sampleRepo, rank: 3, owner: "solo", name: "once", fullName: "solo/once", url: "https://github.com/solo/once" },
@@ -490,7 +490,7 @@ describe("generateSite", () => {
     const dataDir = join(root, "data");
     const siteDir = join(root, "site");
     mkdirSync(dataDir);
-    writeDigest(dataDir, "2026-09-03", [sampleRepo]);
+    writeSnapshot(dataDir, "2026-09-03", [sampleRepo]);
 
     generateSite({ dataDir, siteDir });
 
@@ -515,7 +515,7 @@ describe("generateSite", () => {
     const siteDir = join(root, "site");
     mkdirSync(dataDir);
 
-    writeDigest(dataDir, "2026-09-03", [
+    writeSnapshot(dataDir, "2026-09-03", [
       { ...sampleRepo, language: "<script>alert(1)</script>" },
       {
         ...sampleRepo,
@@ -557,13 +557,13 @@ describe("generateSite", () => {
     const gamma = { ...sampleRepo, fullName: "acme/gamma", url: "https://github.com/acme/gamma" };
 
     // alpha 连续 4 天且名次一路爬升到 #1；beta 中间断一天；gamma 只出现最后一天。
-    writeDigest(dataDir, "2026-09-01", [{ ...alpha, rank: 5 }]);
-    writeDigest(dataDir, "2026-09-02", [
+    writeSnapshot(dataDir, "2026-09-01", [{ ...alpha, rank: 5 }]);
+    writeSnapshot(dataDir, "2026-09-02", [
       { ...alpha, rank: 3 },
       { ...beta, rank: 1 },
     ]);
-    writeDigest(dataDir, "2026-09-03", [{ ...alpha, rank: 2 }]);
-    writeDigest(dataDir, "2026-09-04", [
+    writeSnapshot(dataDir, "2026-09-03", [{ ...alpha, rank: 2 }]);
+    writeSnapshot(dataDir, "2026-09-04", [
       { ...alpha, rank: 1 },
       { ...beta, rank: 4 },
       { ...gamma, rank: 9 },
@@ -609,7 +609,7 @@ describe("generateSite", () => {
     const dataDir = join(root, "data");
     const siteDir = join(root, "site");
     mkdirSync(dataDir);
-    writeDigest(dataDir, "2026-09-04", [sampleRepo]);
+    writeSnapshot(dataDir, "2026-09-04", [sampleRepo]);
 
     generateSite({ dataDir, siteDir });
     const trends = readFileSync(join(siteDir, "trends/index.html"), "utf8");
@@ -633,8 +633,8 @@ describe("generateSite", () => {
       url: 'https://github.com/acme/x" onclick="alert(1)',
       description: 'evil<span title="x">desc</span>',
     };
-    writeDigest(dataDir, "2026-09-03", [{ ...evil, rank: 2 }]);
-    writeDigest(dataDir, "2026-09-04", [{ ...evil, rank: 1 }]);
+    writeSnapshot(dataDir, "2026-09-03", [{ ...evil, rank: 2 }]);
+    writeSnapshot(dataDir, "2026-09-04", [{ ...evil, rank: 1 }]);
 
     generateSite({ dataDir, siteDir });
     const trends = readFileSync(join(siteDir, "trends/index.html"), "utf8");

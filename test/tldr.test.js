@@ -25,8 +25,8 @@ import { captureStderr, tmpDataDir } from "./helpers.js";
  * 只产生 1 次客户端调用；测试按此断言。
  */
 
-/** 造 n 个仓库的 digest，fullName 形如 acme/repo-1…acme/repo-n。 */
-function makeDigest(n, extra = {}) {
+/** 造 n 个仓库的 snapshot，fullName 形如 acme/repo-1…acme/repo-n。 */
+function makeSnapshot(n, extra = {}) {
   const repos = Array.from({ length: n }, (_, i) => ({
     rank: i + 1,
     fullName: `acme/repo-${i + 1}`,
@@ -227,12 +227,12 @@ describe("generateTldrSummaries (default fetch-based client)", () => {
 describe("enrichWithTldr", () => {
   it("generates for the top N only, in one batched call", async () => {
     await withoutTldrEnv(async () => {
-      const digest = makeDigest(10);
+      const snapshot = makeSnapshot(10);
       const { client, calls } = fakeTldrClient(
         (repos) => repos.map((repo) => `${repo.fullName} 的导读`),
       );
 
-      await enrichWithTldr(digest, { client, topN: 5 });
+      await enrichWithTldr(snapshot, { client, topN: 5 });
 
       // 一次批量调用，只包含前 5 名
       assert.equal(calls.length, 1);
@@ -244,29 +244,29 @@ describe("enrichWithTldr", () => {
         "acme/repo-5",
       ]);
       for (let i = 0; i < 5; i += 1) {
-        assert.equal(digest.repos[i].tldr, `acme/repo-${i + 1} 的导读`);
+        assert.equal(snapshot.repos[i].tldr, `acme/repo-${i + 1} 的导读`);
       }
       for (let i = 5; i < 10; i += 1) {
-        assert.equal("tldr" in digest.repos[i], false);
+        assert.equal("tldr" in snapshot.repos[i], false);
       }
     });
   });
 
   it("never regenerates an existing tldr (cache-first, zero calls)", async () => {
     await withoutTldrEnv(async () => {
-      const digest = makeDigest(3);
-      digest.repos.forEach((repo) => {
+      const snapshot = makeSnapshot(3);
+      snapshot.repos.forEach((repo) => {
         repo.tldr = "已缓存的导读";
       });
       const { client, calls } = fakeTldrClient(() => {
         throw new Error("should not be called");
       });
 
-      await enrichWithTldr(digest, { client, topN: 5 });
+      await enrichWithTldr(snapshot, { client, topN: 5 });
 
       assert.equal(calls.length, 0);
       assert.deepEqual(
-        digest.repos.map((repo) => repo.tldr),
+        snapshot.repos.map((repo) => repo.tldr),
         ["已缓存的导读", "已缓存的导读", "已缓存的导读"],
       );
     });
@@ -274,15 +274,15 @@ describe("enrichWithTldr", () => {
 
   it("seeds cached tldr from the previous same-day snapshot before calling", async () => {
     await withoutTldrEnv(async () => {
-      const digest = makeDigest(5);
-      const previous = makeDigest(5);
+      const snapshot = makeSnapshot(5);
+      const previous = makeSnapshot(5);
       previous.repos[0].tldr = "缓存一";
       previous.repos[2].tldr = "缓存三";
       const { client, calls } = fakeTldrClient(
         (repos) => repos.map((repo) => `${repo.fullName} 新导读`),
       );
 
-      await enrichWithTldr(digest, { client, previous, topN: 5 });
+      await enrichWithTldr(snapshot, { client, previous, topN: 5 });
 
       // 只有缺失的 3 个仓库（repo-2/4/5）进入批量调用
       assert.equal(calls.length, 1);
@@ -291,18 +291,18 @@ describe("enrichWithTldr", () => {
         "acme/repo-4",
         "acme/repo-5",
       ]);
-      assert.equal(digest.repos[0].tldr, "缓存一");
-      assert.equal(digest.repos[2].tldr, "缓存三");
-      assert.equal(digest.repos[1].tldr, "acme/repo-2 新导读");
-      assert.equal(digest.repos[3].tldr, "acme/repo-4 新导读");
-      assert.equal(digest.repos[4].tldr, "acme/repo-5 新导读");
+      assert.equal(snapshot.repos[0].tldr, "缓存一");
+      assert.equal(snapshot.repos[2].tldr, "缓存三");
+      assert.equal(snapshot.repos[1].tldr, "acme/repo-2 新导读");
+      assert.equal(snapshot.repos[3].tldr, "acme/repo-4 新导读");
+      assert.equal(snapshot.repos[4].tldr, "acme/repo-5 新导读");
     });
   });
 
   it("is fully covered by the previous snapshot → zero calls (second run)", async () => {
     await withoutTldrEnv(async () => {
-      const digest = makeDigest(5);
-      const previous = makeDigest(5);
+      const snapshot = makeSnapshot(5);
+      const previous = makeSnapshot(5);
       previous.repos.forEach((repo) => {
         repo.tldr = `${repo.fullName} 的旧导读`;
       });
@@ -310,26 +310,26 @@ describe("enrichWithTldr", () => {
         throw new Error("should not be called");
       });
 
-      await enrichWithTldr(digest, { client, previous, topN: 5 });
+      await enrichWithTldr(snapshot, { client, previous, topN: 5 });
 
       assert.equal(calls.length, 0);
-      assert.equal(digest.repos[4].tldr, "acme/repo-5 的旧导读");
+      assert.equal(snapshot.repos[4].tldr, "acme/repo-5 的旧导读");
     });
   });
 
   it("returns unchanged with zero network attempts when no key is configured", async () => {
     await withoutTldrEnv(async () => {
-      const digest = makeDigest(3);
+      const snapshot = makeSnapshot(3);
       let fetchCalls = 0;
       const fetch = async () => {
         fetchCalls += 1;
         return okChatResponse('["不应发生"]');
       };
 
-      await enrichWithTldr(digest, { fetch });
+      await enrichWithTldr(snapshot, { fetch });
 
       assert.equal(fetchCalls, 0);
-      for (const repo of digest.repos) {
+      for (const repo of snapshot.repos) {
         assert.equal("tldr" in repo, false);
       }
     });
@@ -337,45 +337,45 @@ describe("enrichWithTldr", () => {
 
   it("honors an injected client even without a key (injector has precedence)", async () => {
     await withoutTldrEnv(async () => {
-      const digest = makeDigest(1);
+      const snapshot = makeSnapshot(1);
       const { client, calls } = fakeTldrClient(() => ["无需 key 的导读"]);
 
-      await enrichWithTldr(digest, { client });
+      await enrichWithTldr(snapshot, { client });
 
       assert.equal(calls.length, 1);
-      assert.equal(digest.repos[0].tldr, "无需 key 的导读");
+      assert.equal(snapshot.repos[0].tldr, "无需 key 的导读");
     });
   });
 
   it("resolves topN from the TLDR_TOP_N environment variable", async () => {
     await withoutTldrEnv(async () => {
       process.env.TLDR_TOP_N = "2";
-      const digest = makeDigest(10);
+      const snapshot = makeSnapshot(10);
       const { client, calls } = fakeTldrClient(
         (repos) => repos.map((repo) => `${repo.fullName} 的导读`),
       );
 
-      await enrichWithTldr(digest, { client });
+      await enrichWithTldr(snapshot, { client });
 
       assert.equal(calls.length, 1);
       assert.equal(calls[0].length, 2);
-      assert.equal("tldr" in digest.repos[2], false);
+      assert.equal("tldr" in snapshot.repos[2], false);
     });
   });
 
   it("never rejects when the client throws; warns and writes nothing", async () => {
     await withoutTldrEnv(async () => {
-      const digest = makeDigest(2);
+      const snapshot = makeSnapshot(2);
       const { client, calls } = fakeTldrClient(() => {
         throw new Error("LLM endpoint returned HTTP 500 Internal Server Error");
       });
 
       const lines = await captureStderr(() =>
-        enrichWithTldr(digest, { client, topN: 5 }),
+        enrichWithTldr(snapshot, { client, topN: 5 }),
       );
 
       assert.equal(calls.length, 1);
-      for (const repo of digest.repos) {
+      for (const repo of snapshot.repos) {
         assert.equal("tldr" in repo, false);
       }
       assert.equal(lines.length, 1);
@@ -386,32 +386,32 @@ describe("enrichWithTldr", () => {
 
   it("contains a client that throws synchronously", async () => {
     await withoutTldrEnv(async () => {
-      const digest = makeDigest(1);
+      const snapshot = makeSnapshot(1);
       const lines = await captureStderr(() =>
-        enrichWithTldr(digest, {
+        enrichWithTldr(snapshot, {
           client: () => {
             throw new Error("sync boom");
           },
         }),
       );
 
-      assert.equal("tldr" in digest.repos[0], false);
+      assert.equal("tldr" in snapshot.repos[0], false);
       assert.match(lines[0], /sync boom/);
     });
   });
 
   it("warns per repo when the model omits or blanks a summary", async () => {
     await withoutTldrEnv(async () => {
-      const digest = makeDigest(3);
+      const snapshot = makeSnapshot(3);
       const { client } = fakeTldrClient(() => ["只有第一句", "   ", 42]);
 
       const lines = await captureStderr(() =>
-        enrichWithTldr(digest, { client, topN: 5 }),
+        enrichWithTldr(snapshot, { client, topN: 5 }),
       );
 
-      assert.equal(digest.repos[0].tldr, "只有第一句");
-      assert.equal("tldr" in digest.repos[1], false);
-      assert.equal("tldr" in digest.repos[2], false);
+      assert.equal(snapshot.repos[0].tldr, "只有第一句");
+      assert.equal("tldr" in snapshot.repos[1], false);
+      assert.equal("tldr" in snapshot.repos[2], false);
       assert.equal(lines.length, 2);
       assert.match(lines[0], /acme\/repo-2/);
       assert.match(lines[1], /acme\/repo-3/);
@@ -420,24 +420,24 @@ describe("enrichWithTldr", () => {
 
   it("skips sample snapshots entirely (zero calls)", async () => {
     await withoutTldrEnv(async () => {
-      const digest = makeDigest(3, { sample: true });
+      const snapshot = makeSnapshot(3, { sample: true });
       const { client, calls } = fakeTldrClient(() => {
         throw new Error("should not be called");
       });
 
-      await enrichWithTldr(digest, { client, topN: 5 });
+      await enrichWithTldr(snapshot, { client, topN: 5 });
 
       assert.equal(calls.length, 0);
-      assert.equal("tldr" in digest.repos[0], false);
+      assert.equal("tldr" in snapshot.repos[0], false);
     });
   });
 
   it("is a no-op for an empty repo list", async () => {
     await withoutTldrEnv(async () => {
-      const digest = { repos: [] };
+      const snapshot = { repos: [] };
       const { client, calls } = fakeTldrClient(() => []);
 
-      await enrichWithTldr(digest, { client });
+      await enrichWithTldr(snapshot, { client });
 
       assert.equal(calls.length, 0);
     });
@@ -674,7 +674,7 @@ describe("generateSite tldr display", () => {
     starsToday: 3,
   };
 
-  function writeDigest(dir, date, repos) {
+  function writeSnapshot(dir, date, repos) {
     writeFileSync(
       join(dir, `${date}.json`),
       JSON.stringify({
@@ -691,7 +691,7 @@ describe("generateSite tldr display", () => {
     const dataDir = join(root, "data");
     const siteDir = join(root, "site");
     mkdirSync(dataDir);
-    writeDigest(dataDir, "2026-09-04", [repoWithTldr, repoWithoutTldr]);
+    writeSnapshot(dataDir, "2026-09-04", [repoWithTldr, repoWithoutTldr]);
 
     generateSite({ dataDir, siteDir });
     const home = readFileSync(join(siteDir, "index.html"), "utf8");
