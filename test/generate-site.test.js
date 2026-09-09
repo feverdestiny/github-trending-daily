@@ -188,6 +188,27 @@ describe("generateSite", () => {
     assert.match(v1Day, /href="https:\/\/www\.reddit\.com\/search\/\?q=fmtlib%2Ffmt"/);
   });
 
+  it("omits the 今日新增 delta for v1 rows without starsToday but keeps +0 for a real zero", () => {
+    const root = mkdtempSync(join(tmpdir(), "trending-delta-"));
+    const dataDir = join(root, "data");
+    const siteDir = join(root, "site");
+    mkdirSync(dataDir);
+
+    const { starsToday, ...v1NoDelta } = sampleRepo; // v1：无 starsToday 字段
+    writeDigest(dataDir, "2026-09-03", [v1NoDelta]);
+    writeDigest(dataDir, "2026-09-04", [{ ...sampleRepo, starsToday: 0 }]);
+
+    generateSite({ dataDir, siteDir });
+    const v1Day = readFileSync(join(siteDir, "days/2026-09-03/index.html"), "utf8");
+    const zeroDay = readFileSync(join(siteDir, "days/2026-09-04/index.html"), "utf8");
+
+    // 字段缺失：整块增速省略，绝不渲染成假的「今日新增 +0」
+    assert.doesNotMatch(v1Day, /今日新增/);
+    assert.doesNotMatch(v1Day, /class="delta"/);
+    // 字段存在且为 0：照常显示 +0
+    assert.match(zeroDay, /<span class="delta">今日新增 \+0<\/span>/);
+  });
+
   it("paginates the archive at 30 days per page with month groups and correct pager links", () => {
     const root = mkdtempSync(join(tmpdir(), "trending-pager-"));
     const dataDir = join(root, "data");

@@ -74,7 +74,12 @@ function entryHtml(repo) {
     ? xmlEscape(repo.description)
     : "暂无简介";
   const language = repo.language ? xmlEscape(repo.language) : "未标注语言";
-  const meta = `语言：${language} · ★ ${formatCount(repo.stars)} · 今日新增 +${formatCount(repo.starsToday)}`;
+  // v1 旧快照没有 starsToday：整段「今日新增」短语省略，不渲染成假的 +0；
+  // 字段存在且为 0 时仍照常显示 +0。
+  const delta = repo.starsToday == null
+    ? ""
+    : ` · 今日新增 +${formatCount(repo.starsToday)}`;
+  const meta = `语言：${language} · ★ ${formatCount(repo.stars)}${delta}`;
   return `<p>${description}</p><p>${meta}</p>`;
 }
 

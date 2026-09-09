@@ -226,6 +226,10 @@ function repoCard(repo, trend = null) {
   const tldr = repo.tldr
     ? `<p class="tldr"><span class="tldr-tag">AI 导读</span>${escapeHtml(repo.tldr)}</p>`
     : "";
+  // v1 旧快照没有 starsToday：不渲染「今日新增 +0」的假增速；字段为 0 时仍显示 +0。
+  const delta = repo.starsToday == null
+    ? ""
+    : `<span class="delta">今日新增 +${formatCount(repo.starsToday)}</span>`;
 
   return `
       <article class="card">
@@ -239,7 +243,7 @@ function repoCard(repo, trend = null) {
         <div class="meta">
           ${language}
           <span class="stars">★ ${formatCount(repo.stars)}</span>
-          <span class="delta">今日新增 +${formatCount(repo.starsToday)}</span>
+          ${delta}
         </div>
         <div class="card-foot">
           ${license}

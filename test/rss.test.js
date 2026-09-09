@@ -239,6 +239,33 @@ describe("generateAtomFeed", () => {
     assert.doesNotMatch(v2, /ownerAvatarUrl|onerror/);
   });
 
+  it("omits the 今日新增 phrase when starsToday is absent (v1) but keeps +0 for a real zero", () => {
+    // v1 旧快照：没有 starsToday 字段 → 不渲染「今日新增」短语（不得伪造 +0）。
+    const v1Repo = {
+      rank: 1,
+      fullName: "legacy/one",
+      url: "https://github.com/legacy/one",
+      description: "Old snapshot",
+      stars: 10,
+    };
+    const absent = generateAtomFeed({
+      days: [{ date: "2026-01-01", repos: [v1Repo] }],
+      siteUrl: "https://example.com/",
+    });
+    assertWellFormedXml(absent);
+    assert.doesNotMatch(absent, /今日新增/);
+    // content type="html" 整段被 XML 转义：meta 行以总星标收尾，后面不再有增速短语
+    assert.match(absent, /语言：未标注语言 · ★ 10&lt;\/p&gt;/);
+
+    // 字段存在且为 0：照常显示 +0
+    const zero = generateAtomFeed({
+      days: [{ date: "2026-01-01", repos: [{ ...v1Repo, starsToday: 0 }] }],
+      siteUrl: "https://example.com/",
+    });
+    assertWellFormedXml(zero);
+    assert.match(zero, /今日新增 \+0/);
+  });
+
   it("renders a valid feed with zero entries when the latest day has no repos", () => {
     // 约定：最新一天 repos 为空 → 输出合法但无条目的 feed（保持 feed URL 永远可订阅）
     const feed = generateAtomFeed({
