@@ -8,6 +8,12 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  languageBoards,
+  monthly,
+  rollingWindow,
+  weekly,
+} from "./aggregate.js";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -133,17 +139,32 @@ function page(title, cssHref, body) {
 }
 
 /**
- * @param {{ homeHref: string, archiveHref: string, current: "home" | "archive" | "day" }} nav
+ * 站点页头。homeHref 恒为带尾斜杠的站点根相对路径（"./"、"../"、"../../"），
+ * 周/月/语言入口由它直接派生，新增导航只需维护下面这一份 entries 清单。
+ * @param {{ homeHref: string, archiveHref: string, current: "home" | "archive" | "day" | "weekly" | "monthly" | "languages" }} nav
  */
 function header(nav) {
+  const rootHref = nav.homeHref.endsWith("/") ? nav.homeHref : `${nav.homeHref}/`;
+  const entries = [
+    { key: "home", href: nav.homeHref, label: "今日" },
+    { key: "archive", href: nav.archiveHref, label: "归档" },
+    { key: "weekly", href: `${rootHref}weekly/`, label: "周榜" },
+    { key: "monthly", href: `${rootHref}monthly/`, label: "月榜" },
+    { key: "languages", href: `${rootHref}languages/`, label: "语言" },
+  ];
+
   return `
   <header class="site-header">
     <div class="wrap header-inner">
       <a class="brand" href="${nav.homeHref}">GitHub 每日热门</a>
       <div class="header-actions">
         <nav class="nav" aria-label="站点导航">
-          <a href="${nav.homeHref}"${nav.current === "home" ? ' aria-current="page"' : ""}>今日</a>
-          <a href="${nav.archiveHref}"${nav.current === "archive" ? ' aria-current="page"' : ""}>归档</a>
+          ${entries
+            .map(
+              (entry) =>
+                `<a href="${entry.href}"${nav.current === entry.key ? ' aria-current="page"' : ""}>${entry.label}</a>`,
+            )
+            .join("\n          ")}
         </nav>
         <button id="theme-toggle" class="theme-toggle" type="button" aria-label="切换深浅色模式">${THEME_ICONS}</button>
       </div>
@@ -243,6 +264,138 @@ function listPage(digest, heading, nav, extraBanner = "", afterList = "") {
       ${repoCards(digest)}
     </section>
     ${afterList}
+  </main>
+  ${footer()}`;
+}
+
+/**
+ * 周/月聚合榜卡片：与日榜卡片同构，但增速为区间累计（+N (7天) / +N (30天)），
+ * 卡片脚注展示窗口内上榜天数。
+ * @param {object} entry src/aggregate.js 聚合榜条目
+ * @param {number} windowDays
+ */
+function aggregateCard(entry, windowDays) {
+  const name = escapeHtml(entry.fullName);
+  const description = entry.description ? escapeHtml(entry.description) : "暂无简介";
+  const language = entry.language
+    ? `<span class="lang"><i class="dot" style="--hue:${languageHue(entry.language)}" aria-hidden="true"></i>${escapeHtml(entry.language)}</span>`
+    : `<span class="lang muted">未标注语言</span>`;
+
+  return `
+      <article class="card">
+        <div class="card-head">
+          <span class="rank" aria-label="排名 ${Number(entry.rank) || ""}">${Number(entry.rank) || ""}</span>
+          <h2 class="repo"><a href="${escapeHtml(entry.url)}" target="_blank" rel="noreferrer">${name}</a></h2>
+        </div>
+        <p class="desc">${description}</p>
+        <div class="meta">
+          ${language}
+          <span class="stars">★ ${formatCount(entry.stars)}</span>
+          <span class="delta">+${formatCount(entry.totalDelta)} (${windowDays}天)</span>
+        </div>
+        <div class="card-foot">
+          <span class="appear">${windowDays} 天中上榜 ${Number(entry.appearanceDays) || 0} 天</span>
+          <span class="discuss">讨论 <a href="${escapeHtml(hnSearchUrl(entry.fullName))}" target="_blank" rel="noreferrer">HN</a> · <a href="${escapeHtml(redditSearchUrl(entry.fullName))}" target="_blank" rel="noreferrer">Reddit</a></span>
+        </div>
+      </article>`;
+}
+
+/**
+ * 周/月聚合榜页。窗口内快照不足 2 天、或没有仓库上榜 ≥2 天时渲染友好空状态。
+ * @param {{ heading: string, eyebrow: string, entries: object[], windowDays: number,
+ *    start: string, end: string, nav: object, emptyMessage: string, sample?: boolean }} options
+ */
+function aggregatePage({
+  heading,
+  eyebrow,
+  entries,
+  windowDays,
+  start,
+  end,
+  nav,
+  emptyMessage,
+  sample = false,
+}) {
+  const cards = entries.length
+    ? `
+    <section class="cards" aria-label="聚合榜单">
+      ${entries.map((entry) => aggregateCard(entry, windowDays)).join("\n")}
+    </section>`
+    : `
+    <p class="empty">${escapeHtml(emptyMessage)}</p>`;
+
+  return `
+  ${header(nav)}
+  <main class="wrap">
+    <section class="hero">
+      <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+      <h1>${escapeHtml(heading)}</h1>
+      <p class="lede">${escapeHtml(start)} 至 ${escapeHtml(end)}（${windowDays} 天）· 按区间星标增量排序，仅收录出现 ≥2 天的仓库</p>
+      ${sample ? `<p class="banner sample">聚合窗口内包含<strong>示例数据</strong>，不是完整的线上抓取结果。</p>` : ""}
+    </section>
+    ${cards}
+  </main>
+  ${footer()}`;
+}
+
+/**
+ * 语言子榜索引：列出全部入选语言，相对链接到各自子榜页。
+ * @param {object[]} boards src/aggregate.js languageBoards 的输出
+ * @param {object} nav
+ * @param {string} latestDate
+ */
+function languagesIndexPage(boards, nav, latestDate) {
+  const list = boards.length
+    ? `
+        <ol class="archive-list">
+          ${boards
+            .map(
+              (board) =>
+                `<li><a href="${escapeHtml(board.slug)}/"><span class="date">${escapeHtml(board.language)}</span><span class="count">最新一天 ${board.repos.length} 个仓库</span></a></li>`,
+            )
+            .join("\n")}
+        </ol>`
+    : `<p class="empty">暂无可分组的语言数据。</p>`;
+
+  return `
+  ${header(nav)}
+  <main class="wrap">
+    <section class="hero">
+      <p class="eyebrow">语言 · 子榜索引</p>
+      <h1>语言子榜</h1>
+      <p class="lede">共 ${boards.length} 个语言${latestDate ? ` · 数据截至 ${escapeHtml(latestDate)}` : ""}。</p>
+    </section>
+    <section class="month-group">
+      ${list}
+    </section>
+  </main>
+  ${footer()}`;
+}
+
+/**
+ * 单个语言子榜页：最新一天该语言的仓库，按当日排名复用日榜卡片。
+ * @param {object} board src/aggregate.js languageBoards 的输出项
+ * @param {object} nav
+ * @param {string} latestDate
+ */
+function languageBoardPage(board, nav, latestDate) {
+  const cards = board.repos.length
+    ? `
+    <section class="cards" aria-label="语言子榜">
+      ${board.repos.map((repo) => repoCard(repo)).join("\n")}
+    </section>`
+    : `
+    <p class="empty">最新一天（${escapeHtml(latestDate)}）没有 ${escapeHtml(board.language)} 仓库上榜。</p>`;
+
+  return `
+  ${header(nav)}
+  <main class="wrap">
+    <section class="hero">
+      <p class="eyebrow">语言子榜 · 最新一天</p>
+      <h1>${escapeHtml(board.language)}</h1>
+      <p class="lede">${escapeHtml(latestDate)} 共 ${board.repos.length} 个仓库上榜</p>
+    </section>
+    ${cards}
   </main>
   ${footer()}`;
 }
@@ -783,6 +936,69 @@ export function generateSite(options = {}) {
           },
           "",
           navLinks,
+        ),
+      ),
+    );
+  }
+
+  // 多维榜单：周/月滚动聚合与语言子榜（聚合逻辑在 src/aggregate.js，纯函数）。
+  const periodBoards = [
+    { key: "weekly", heading: "周榜", windowDays: 7, entries: weekly(digests), window: rollingWindow(digests, 7) },
+    { key: "monthly", heading: "月榜", windowDays: 30, entries: monthly(digests), window: rollingWindow(digests, 30) },
+  ];
+  for (const { key, heading, windowDays, entries, window } of periodBoards) {
+    const emptyMessage =
+      window.days.length < 2
+        ? `数据不足：${heading}至少需要 2 天快照，当前窗口内只有 ${window.days.length} 天。`
+        : "窗口内没有仓库连续上榜 ≥2 天，暂时无法生成榜单。";
+    mkdirSync(join(siteDir, key), { recursive: true });
+    writeFileSync(
+      join(siteDir, key, "index.html"),
+      page(
+        `${heading} · GitHub 每日热门`,
+        "../assets/style.css",
+        aggregatePage({
+          heading,
+          eyebrow: `GitHub Trending · ${windowDays} 天滚动聚合`,
+          entries,
+          windowDays,
+          start: window.start,
+          end: window.end,
+          nav: { homeHref: "../", archiveHref: "../archive/", current: key },
+          emptyMessage,
+          sample: window.days.some((day) => day?.sample),
+        }),
+      ),
+    );
+  }
+
+  // 语言子榜：索引页 + 每个入选语言一页（/languages/<slug>/）。
+  const boards = languageBoards(digests);
+  mkdirSync(join(siteDir, "languages"), { recursive: true });
+  writeFileSync(
+    join(siteDir, "languages/index.html"),
+    page(
+      "语言子榜 · GitHub 每日热门",
+      "../assets/style.css",
+      languagesIndexPage(
+        boards,
+        { homeHref: "../", archiveHref: "../archive/", current: "languages" },
+        latest.date,
+      ),
+    ),
+  );
+  for (const board of boards) {
+    const boardDir = join(siteDir, "languages", board.slug);
+    mkdirSync(boardDir, { recursive: true });
+    writeFileSync(
+      join(boardDir, "index.html"),
+      page(
+        `${board.language} · 语言子榜 · GitHub 每日热门`,
+        "../../assets/style.css",
+        languageBoardPage(
+          board,
+          { homeHref: "../../", archiveHref: "../../archive/", current: "languages" },
+          latest.date,
         ),
       ),
     );

@@ -333,4 +333,138 @@ describe("generateSite", () => {
     assert.match(home, /aria-label="切换深浅色模式"/);
     assert.match(home, /id="theme-toggle"/);
   });
+
+  it("renders weekly/monthly boards and language sub-boards reachable from the nav", () => {
+    const root = mkdtempSync(join(tmpdir(), "trending-boards-"));
+    const dataDir = join(root, "data");
+    const siteDir = join(root, "site");
+    mkdirSync(dataDir);
+
+    const fmt = (starsToday) => ({
+      ...sampleRepo,
+      rank: 1,
+      starsToday,
+    });
+    const jsRepo = (starsToday, rank) => ({
+      ...sampleRepo,
+      rank,
+      owner: "acme",
+      name: "js",
+      fullName: "acme/js",
+      url: "https://github.com/acme/js",
+      language: "JavaScript",
+      starsToday,
+    });
+    // 跨月窗口：最新 2026-09-03，7 天窗口 = 2026-08-28..2026-09-03（首日恰在窗口边缘）
+    writeDigest(dataDir, "2026-08-28", [fmt(100), jsRepo(10, 2)]);
+    writeDigest(dataDir, "2026-09-03", [
+      fmt(100),
+      jsRepo(50, 2),
+      { ...sampleRepo, rank: 3, owner: "solo", name: "once", fullName: "solo/once", url: "https://github.com/solo/once" },
+    ]);
+
+    generateSite({ dataDir, siteDir });
+
+    // 导航在浅层与深层页面都指向正确相对路径
+    const home = readFileSync(join(siteDir, "index.html"), "utf8");
+    assert.match(home, /href="\.\/weekly\/">周榜</);
+    assert.match(home, /href="\.\/monthly\/">月榜</);
+    assert.match(home, /href="\.\/languages\/">语言</);
+    const day = readFileSync(join(siteDir, "days/2026-09-03/index.html"), "utf8");
+    assert.match(day, /href="\.\.\/\.\.\/weekly\/">周榜</);
+    assert.match(day, /href="\.\.\/\.\.\/monthly\/">月榜</);
+    assert.match(day, /href="\.\.\/\.\.\/languages\/">语言</);
+
+    // 周榜：fmt 两天各 +100 → +200 (7天)、上榜 2 天；单日出现的 solo/once 被排除
+    const weeklyHtml = readFileSync(join(siteDir, "weekly/index.html"), "utf8");
+    assert.match(weeklyHtml, /<h1>周榜<\/h1>/);
+    assert.match(weeklyHtml, /2026-08-28 至 2026-09-03/);
+    assert.match(weeklyHtml, /\+200 \(7天\)/);
+    assert.match(weeklyHtml, /7 天中上榜 2 天/);
+    assert.ok(weeklyHtml.indexOf("fmtlib/fmt") < weeklyHtml.indexOf("acme/js"));
+    assert.doesNotMatch(weeklyHtml, /solo\/once/);
+    assert.match(weeklyHtml, /href="\.\.\/weekly\/" aria-current="page">周榜</);
+
+    // 月榜：同规则，30 天窗口
+    const monthlyHtml = readFileSync(join(siteDir, "monthly/index.html"), "utf8");
+    assert.match(monthlyHtml, /<h1>月榜<\/h1>/);
+    assert.match(monthlyHtml, /\+200 \(30天\)/);
+    assert.doesNotMatch(monthlyHtml, /solo\/once/);
+
+    // 语言索引：按语言名 slug 相对链接
+    const langIndex = readFileSync(join(siteDir, "languages/index.html"), "utf8");
+    assert.match(langIndex, /href="c-plus-plus\/"><span class="date">C\+\+<\/span>/);
+    assert.match(langIndex, /href="javascript\/"><span class="date">JavaScript<\/span>/);
+
+    // 语言子榜：只含该语言最新一天的仓库，且当前导航态正确
+    const cpp = readFileSync(join(siteDir, "languages/c-plus-plus/index.html"), "utf8");
+    assert.match(cpp, /<h1>C\+\+<\/h1>/);
+    assert.match(cpp, /fmtlib\/fmt/);
+    assert.doesNotMatch(cpp, /acme\/js/);
+    assert.match(cpp, /href="\.\.\/\.\.\/languages\/" aria-current="page">语言</);
+    const js = readFileSync(join(siteDir, "languages/javascript/index.html"), "utf8");
+    assert.match(js, /acme\/js/);
+    assert.doesNotMatch(js, /fmtlib\/fmt/);
+  });
+
+  it("renders friendly empty-state period boards with fewer than 2 days of data", () => {
+    const root = mkdtempSync(join(tmpdir(), "trending-empty-boards-"));
+    const dataDir = join(root, "data");
+    const siteDir = join(root, "site");
+    mkdirSync(dataDir);
+    writeDigest(dataDir, "2026-09-03", [sampleRepo]);
+
+    generateSite({ dataDir, siteDir });
+
+    for (const key of ["weekly", "monthly"]) {
+      const html = readFileSync(join(siteDir, `${key}/index.html`), "utf8");
+      assert.match(html, /数据不足/);
+      assert.match(html, /至少需要 2 天快照/);
+      assert.doesNotMatch(html, /fmtlib\/fmt/);
+      assert.match(html, /<!DOCTYPE html>/);
+    }
+
+    // 语言子榜不受影响：单日数据也能按语言分组
+    const langIndex = readFileSync(join(siteDir, "languages/index.html"), "utf8");
+    assert.match(langIndex, /href="c-plus-plus\/"/);
+    const cpp = readFileSync(join(siteDir, "languages/c-plus-plus/index.html"), "utf8");
+    assert.match(cpp, /fmtlib\/fmt/);
+  });
+
+  it("escapes hostile language names in board paths and content", () => {
+    const root = mkdtempSync(join(tmpdir(), "trending-lang-xss-"));
+    const dataDir = join(root, "data");
+    const siteDir = join(root, "site");
+    mkdirSync(dataDir);
+
+    writeDigest(dataDir, "2026-09-03", [
+      { ...sampleRepo, language: "<script>alert(1)</script>" },
+      {
+        ...sampleRepo,
+        rank: 2,
+        owner: "acme",
+        name: "trav",
+        fullName: "acme/trav",
+        url: "https://github.com/acme/trav",
+        language: "../..",
+      },
+    ]);
+
+    generateSite({ dataDir, siteDir });
+
+    // 索引只链接到派生 slug，不出现原始语言名
+    const langIndex = readFileSync(join(siteDir, "languages/index.html"), "utf8");
+    assert.match(langIndex, /href="script-alert-1-script\/"/);
+    assert.doesNotMatch(langIndex, /href="<script>/);
+
+    // 子榜页内容转义、路径不含 ../
+    const evil = readFileSync(
+      join(siteDir, "languages/script-alert-1-script/index.html"),
+      "utf8",
+    );
+    assert.match(evil, /<h1>&lt;script&gt;alert\(1\)&lt;\/script&gt;<\/h1>/);
+    assert.doesNotMatch(evil, /<script>alert\(1\)/);
+    assert.ok(!existsSync(join(siteDir, "etc")));
+    assert.ok(existsSync(join(siteDir, "languages/lang/index.html"))); // "../.." → 回退 slug "lang"
+  });
 });
