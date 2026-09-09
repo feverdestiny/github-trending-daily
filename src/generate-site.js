@@ -454,7 +454,8 @@ function archivePageHref(targetPage, fromPage) {
  * @param {number} fromPage
  */
 function archiveItem(item, fromPage) {
-  const base = fromPage === 1 ? "../days/" : "../../days/";
+  // 第 1 页在 site/archive/ 下（两级），第 n(n≥2) 页在 site/archive/page/n/ 下（三级）。
+  const base = fromPage === 1 ? "../days/" : "../../../days/";
   return `<li><a href="${base}${escapeHtml(item.date)}/"><span class="date">${escapeHtml(item.date)}${item.sample ? "（示例）" : ""}</span><span class="count">${item.repos?.length ?? 0} 个仓库</span></a></li>`;
 }
 
@@ -502,7 +503,7 @@ function archiveBody(digests, pageNum, pageCount) {
       : "";
 
   return `
-      ${header({ homeHref: pageNum === 1 ? "../" : "../../", archiveHref: pageNum === 1 ? "./" : "../../archive/", trendsHref: pageNum === 1 ? "../trends/" : "../../../trends/", current: "archive" })}
+      ${header({ homeHref: pageNum === 1 ? "../" : "../../../", archiveHref: pageNum === 1 ? "./" : "../../../archive/", trendsHref: pageNum === 1 ? "../trends/" : "../../../trends/", current: "archive" })}
       <main class="wrap">
         <section class="hero">
           <p class="eyebrow">归档 · 按月分组</p>
@@ -1052,7 +1053,7 @@ export function generateSite(options = {}) {
       join(dir, "index.html"),
       page(
         `归档${isRootPage ? "" : ` · 第 ${pageNum} 页`} · GitHub 每日热门`,
-        isRootPage ? "../assets/style.css" : "../../assets/style.css",
+        isRootPage ? "../assets/style.css" : "../../../assets/style.css",
         archiveBody(digests, pageNum, pageCount),
         feedHref,
       ),

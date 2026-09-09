@@ -219,13 +219,70 @@ describe("generateSite", () => {
     assert.match(page1, /href="page\/2\/" rel="next">下一页/);
     assert.doesNotMatch(page1, /rel="prev"/);
 
-    // 第 2 页：剩余 15 天（全是 7 月），prev 指回归档根，无 next
-    assert.equal((page2.match(/href="\.\.\/\.\.\/days\//g) || []).length, 15);
+    // 第 2 页：剩余 15 天（全是 7 月），day 链接在 archive/page/2/ 下需上溯三级
+    assert.equal((page2.match(/href="\.\.\/\.\.\/\.\.\/days\//g) || []).length, 15);
     assert.match(page2, /2026-07-01/);
     assert.doesNotMatch(page2, /2026-08-14/);
     assert.doesNotMatch(page2, /2026年8月/);
     assert.match(page2, /第 2 \/ 2 页/);
     assert.match(page2, /href="\.\.\/\.\.\/" rel="prev">← 上一页/);
+    assert.doesNotMatch(page2, /rel="next"/);
+  });
+
+  it("deep archive pagination (archive/page/2/) links back to the site root at depth 3", () => {
+    // 回归：archive/page/N/（N≥2）在站点根下三级，所有站内相对链接都必须
+    // 上溯三级（../../../），否则 brand/导航/日报/样式全部落在 /archive/ 下。
+    const root = mkdtempSync(join(tmpdir(), "trending-page2-"));
+    const dataDir = join(root, "data");
+    const siteDir = join(root, "site");
+    mkdirSync(dataDir);
+
+    const startMs = Date.UTC(2026, 6, 1);
+    for (let i = 0; i < 45; i += 1) {
+      const date = new Date(startMs + i * 86400000).toISOString().slice(0, 10);
+      writeDigest(dataDir, date, [sampleRepo]);
+    }
+
+    generateSite({ dataDir, siteDir });
+    const page2 = readFileSync(join(siteDir, "archive/page/2/index.html"), "utf8");
+
+    // 样式表与品牌链接：精确三级上溯
+    assert.ok(
+      page2.includes('<link rel="stylesheet" href="../../../assets/style.css">'),
+      "stylesheet link must climb three levels from archive/page/2/",
+    );
+    assert.ok(
+      page2.includes('<a class="brand" href="../../../">GitHub 每日热门</a>'),
+      "brand link must point at the site root",
+    );
+
+    // 全部导航入口逐条精确断言（trends 同样三级；archive 高亮当前项）
+    for (const navEntry of [
+      '<a href="../../../">今日</a>',
+      '<a href="../../../weekly/">周榜</a>',
+      '<a href="../../../monthly/">月榜</a>',
+      '<a href="../../../languages/">语言</a>',
+      '<a href="../../../trends/">趋势档案</a>',
+      '<a href="../../../archive/" aria-current="page">归档</a>',
+    ]) {
+      assert.ok(page2.includes(navEntry), `nav entry missing: ${navEntry}`);
+    }
+
+    // 日报链接精确指向根下 /days/（三级上溯），不得停留在 /archive/ 下
+    assert.ok(
+      page2.includes('<a href="../../../days/2026-07-01/">'),
+      "day-page link must climb three levels",
+    );
+    assert.doesNotMatch(page2, /href="\.\.\/\.\.\/days\//);
+    assert.doesNotMatch(page2, /href="\.\.\/\.\.\/assets\//);
+    assert.doesNotMatch(page2, /href="\.\.\/\.\.\/weekly\//);
+
+    // 分页链接保持页间相对（第 2 页 → 上一页是归档根 ../../，且无下一页）
+    assert.ok(
+      page2.includes('<a href="../../" rel="prev">← 上一页</a>'),
+      "prev pager link must stay archive-relative",
+    );
+    assert.ok(page2.includes('<span class="pager-status">第 2 / 2 页</span>'));
     assert.doesNotMatch(page2, /rel="next"/);
   });
 
