@@ -582,6 +582,45 @@ function trendsBody(trendIndex, historyDays) {
   ${footer()}`;
 }
 
+/** 深色主题共用的一组自定义属性声明：手动切换与系统跟随必须是同一组值。 */
+const DARK_THEME_DECLARATIONS = [
+  "--bg: #0e1319;",
+  "--card: #151c24;",
+  "--ink: #e6ebf1;",
+  "--muted: #9da9b7;",
+  "--line: #263140;",
+  "--line-strong: #35455a;",
+  "--link: #82b1f8;",
+  "--link-strong: #a8c8fb;",
+  "--rank-bg: #1d2836;",
+  "--chip-bg: #202b38;",
+  "--chip-ink: #c6d1dd;",
+  "--delta: #4cc38a;",
+  "--delta-bg: rgba(76, 195, 138, 0.13);",
+  "--warn-bg: rgba(253, 186, 116, 0.1);",
+  "--warn-border: rgba(253, 186, 116, 0.45);",
+  "--warn-ink: #f5c08b;",
+  "--danger-bg: rgba(253, 164, 175, 0.1);",
+  "--danger-border: rgba(253, 164, 175, 0.45);",
+  "--shadow: rgba(0, 0, 0, 0.35);",
+];
+
+/**
+ * @param {string} indent 每行声明前的前缀缩进
+ */
+function darkVariables(indent) {
+  return DARK_THEME_DECLARATIONS.map((line) => `${indent}${line}`).join("\n");
+}
+
+/**
+ * 主题切换按钮图标的显隐规则：深色下显示太阳、隐藏月亮。
+ * @param {string} selector 深色作用域选择器
+ * @param {string} [indent]
+ */
+function themeIconRules(selector, indent = "") {
+  return `${indent}${selector} .icon-sun { display: block; }\n${indent}${selector} .icon-moon { display: none; }`;
+}
+
 export const SITE_CSS = `/* GitHub 每日热门：零框架设计系统。全部主题色走 CSS 自定义属性，
    默认跟随系统深浅色，可通过 <html data-theme> 手动覆盖；不依赖任何外部字体/资源。 */
 :root {
@@ -613,47 +652,11 @@ html[data-theme="dark"] { color-scheme: dark; }
 
 /* 深色主题：手动切换与系统跟随使用同一组变量值 */
 html[data-theme="dark"] {
-  --bg: #0e1319;
-  --card: #151c24;
-  --ink: #e6ebf1;
-  --muted: #9da9b7;
-  --line: #263140;
-  --line-strong: #35455a;
-  --link: #82b1f8;
-  --link-strong: #a8c8fb;
-  --rank-bg: #1d2836;
-  --chip-bg: #202b38;
-  --chip-ink: #c6d1dd;
-  --delta: #4cc38a;
-  --delta-bg: rgba(76, 195, 138, 0.13);
-  --warn-bg: rgba(253, 186, 116, 0.1);
-  --warn-border: rgba(253, 186, 116, 0.45);
-  --warn-ink: #f5c08b;
-  --danger-bg: rgba(253, 164, 175, 0.1);
-  --danger-border: rgba(253, 164, 175, 0.45);
-  --shadow: rgba(0, 0, 0, 0.35);
+${darkVariables("  ")}
 }
 @media (prefers-color-scheme: dark) {
   html:not([data-theme="light"]) {
-    --bg: #0e1319;
-    --card: #151c24;
-    --ink: #e6ebf1;
-    --muted: #9da9b7;
-    --line: #263140;
-    --line-strong: #35455a;
-    --link: #82b1f8;
-    --link-strong: #a8c8fb;
-    --rank-bg: #1d2836;
-    --chip-bg: #202b38;
-    --chip-ink: #c6d1dd;
-    --delta: #4cc38a;
-    --delta-bg: rgba(76, 195, 138, 0.13);
-    --warn-bg: rgba(253, 186, 116, 0.1);
-    --warn-border: rgba(253, 186, 116, 0.45);
-    --warn-ink: #f5c08b;
-    --danger-bg: rgba(253, 164, 175, 0.1);
-    --danger-border: rgba(253, 164, 175, 0.45);
-    --shadow: rgba(0, 0, 0, 0.35);
+${darkVariables("    ")}
   }
 }
 
@@ -720,11 +723,9 @@ a:focus-visible, button:focus-visible {
 }
 .theme-toggle:hover { border-color: var(--line-strong); color: var(--ink); }
 .icon-sun { display: none; }
-html[data-theme="dark"] .icon-sun { display: block; }
-html[data-theme="dark"] .icon-moon { display: none; }
+${themeIconRules('html[data-theme="dark"]')}
 @media (prefers-color-scheme: dark) {
-  html:not([data-theme="light"]) .icon-sun { display: block; }
-  html:not([data-theme="light"]) .icon-moon { display: none; }
+${themeIconRules('html:not([data-theme="light"])', "  ")}
 }
 
 .hero { padding: 34px 0 14px; max-width: 760px; }
