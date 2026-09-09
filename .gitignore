@@ -1,3 +1,5 @@
 node_modules/
 .DS_Store
 *.log
+# 生成的静态站点只作为 Pages 部署产物，不再入库
+site/
