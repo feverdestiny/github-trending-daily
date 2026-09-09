@@ -183,6 +183,10 @@ function repoCard(repo) {
   const avatar = repo.ownerAvatarUrl
     ? ` <img class="avatar" src="${escapeHtml(repo.ownerAvatarUrl)}" alt="" width="36" height="36" loading="lazy" decoding="async">`
     : "";
+  // AI 一句话导读：仅前 N 名且快照里已有 tldr 时显示；旧快照/未启用则整块省略。
+  const tldr = repo.tldr
+    ? `<p class="tldr"><span class="tldr-tag">AI 导读</span>${escapeHtml(repo.tldr)}</p>`
+    : "";
 
   return `
       <article class="card">
@@ -191,6 +195,7 @@ function repoCard(repo) {
           <h2 class="repo"><a href="${escapeHtml(repo.url)}" target="_blank" rel="noreferrer">${name}</a></h2>${avatar}
         </div>
         <p class="desc">${description}</p>
+        ${tldr}
         ${topics}
         <div class="meta">
           ${language}
@@ -555,6 +560,24 @@ html[data-theme="dark"] .icon-moon { display: none; }
   line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.tldr {
+  margin: 10px 0 0;
+  padding: 8px 11px;
+  border-radius: 8px;
+  border-left: 3px solid var(--link);
+  background: var(--chip-bg);
+  color: var(--ink);
+  font-size: 13.5px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.tldr-tag {
+  margin-right: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--link);
+  white-space: nowrap;
 }
 .topics {
   list-style: none;
