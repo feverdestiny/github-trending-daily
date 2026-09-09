@@ -5,6 +5,7 @@ import {
   extractRepoMetadata,
   fetchRepoMetadata,
 } from "../src/enrich.js";
+import { captureStderr } from "./helpers.js";
 
 /** 记录调用并按 fullName 回放预设结果的假 GitHub API 客户端。 */
 function fakeGithubClient(script) {
@@ -16,19 +17,6 @@ function fakeGithubClient(script) {
     return step;
   };
   return { client, calls };
-}
-
-/** 捕获一次 console.error 输出（富集失败只允许警告，不允许抛出）。 */
-async function captureStderr(fn) {
-  const original = console.error;
-  const lines = [];
-  console.error = (...args) => lines.push(args.join(" "));
-  try {
-    await fn();
-    return lines;
-  } finally {
-    console.error = original;
-  }
 }
 
 function okJsonResponse(payload) {

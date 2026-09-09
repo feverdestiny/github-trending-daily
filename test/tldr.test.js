@@ -17,6 +17,7 @@ import {
 } from "../src/tldr.js";
 import { runFetch } from "../src/fetch-trending.js";
 import { generateSite } from "../src/generate-site.js";
+import { captureStderr, tmpDataDir } from "./helpers.js";
 
 /**
  * 调用形态（本票的决定）：整批一次请求——前 N 名的导读在**一次**
@@ -48,19 +49,6 @@ function fakeTldrClient(reply) {
   return { client, calls };
 }
 
-/** 捕获一次 console.error 输出（失败只允许警告，不允许抛出）。 */
-async function captureStderr(fn) {
-  const original = console.error;
-  const lines = [];
-  console.error = (...args) => lines.push(args.join(" "));
-  try {
-    await fn();
-    return lines;
-  } finally {
-    console.error = original;
-  }
-}
-
 /** 在 TLDR_* 环境变量被清空的状态下跑一次 fn（结束后恢复），保证测试不受本机环境影响。 */
 async function withoutTldrEnv(fn) {
   const saved = { ...process.env };
@@ -85,10 +73,6 @@ function okChatResponse(content) {
       choices: [{ message: { role: "assistant", content } }],
     }),
   };
-}
-
-function tmpDataDir() {
-  return join(mkdtempSync(join(tmpdir(), "trending-tldr-")), "data");
 }
 
 describe("parseTldrResponse", () => {

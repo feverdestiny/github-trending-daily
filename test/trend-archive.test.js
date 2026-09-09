@@ -1,34 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildTrendIndex, sortTrendLeaderboard } from "../src/trend-archive.js";
-
-function day(date, repos) {
-  return { date, repos };
-}
-
-function repo(fullName, rank, extra = {}) {
-  const [owner, name] = fullName.split("/");
-  return {
-    rank,
-    owner,
-    name,
-    fullName,
-    url: `https://github.com/${fullName}`,
-    description: "A repo",
-    language: "Python",
-    stars: 100,
-    starsToday: 5,
-    ...extra,
-  };
-}
+import { day, repo } from "./helpers.js";
 
 describe("buildTrendIndex", () => {
   it("counts consecutive days across month boundaries as one streak", () => {
     // 1月末到2月初：2026-01-30 → 01-31 → 02-01 自然日连续。
     const index = buildTrendIndex([
-      day("2026-01-30", [repo("acme/alpha", 2)]),
-      day("2026-01-31", [repo("acme/alpha", 2)]),
-      day("2026-02-01", [repo("acme/alpha", 1)]),
+      day("2026-01-30", [repo("acme/alpha", { rank: 2 })]),
+      day("2026-01-31", [repo("acme/alpha", { rank: 2 })]),
+      day("2026-02-01", [repo("acme/alpha", { rank: 1 })]),
     ]);
 
     const alpha = index.get("acme/alpha");
@@ -44,10 +25,10 @@ describe("buildTrendIndex", () => {
   it("breaks streaks on gap days and keeps single appearances at length 1", () => {
     const index = buildTrendIndex([
       // gap：01-30 与 02-01 之间缺了 01-31，两段各只有 1 天。
-      day("2026-01-30", [repo("acme/gap", 3)]),
-      day("2026-02-01", [repo("acme/gap", 1)]),
+      day("2026-01-30", [repo("acme/gap", { rank: 3 })]),
+      day("2026-02-01", [repo("acme/gap", { rank: 1 })]),
       // 单次上榜。
-      day("2026-01-31", [repo("acme/once", 7)]),
+      day("2026-01-31", [repo("acme/once", { rank: 7 })]),
     ]);
 
     const gap = index.get("acme/gap");
@@ -67,9 +48,9 @@ describe("buildTrendIndex", () => {
     // 01-29 → 01-30 连续两天后掉榜：longest 和 current 都是 2（结束于 lastSeen），
     // 之后 02-01 单独再上榜一段：longest 仍为 2，current 变为 1。
     const index = buildTrendIndex([
-      day("2026-01-29", [repo("acme/flash", 1)]),
-      day("2026-01-30", [repo("acme/flash", 1)]),
-      day("2026-02-01", [repo("acme/flash", 5)]),
+      day("2026-01-29", [repo("acme/flash", { rank: 1 })]),
+      day("2026-01-30", [repo("acme/flash", { rank: 1 })]),
+      day("2026-02-01", [repo("acme/flash", { rank: 5 })]),
     ]);
 
     const flash = index.get("acme/flash");
@@ -81,10 +62,10 @@ describe("buildTrendIndex", () => {
 
   it("handles arbitrary day order, dedupes repeated entries within a day, and keeps latest metadata", () => {
     const index = buildTrendIndex([
-      day("2026-03-02", [repo("acme/meta", 1, { description: "new desc", stars: 300 })]),
-      day("2026-03-01", [repo("acme/meta", 4, { description: "old desc", stars: 100 })]),
+      day("2026-03-02", [repo("acme/meta", { rank: 1, description: "new desc", stars: 300 })]),
+      day("2026-03-01", [repo("acme/meta", { rank: 4, description: "old desc", stars: 100 })]),
       // 同一天重复出现（脏数据）只计一次上榜，也不改变档案身份。
-      day("2026-03-02", [repo("acme/meta", 1, { description: "new desc", stars: 300 })]),
+      day("2026-03-02", [repo("acme/meta", { rank: 1, description: "new desc", stars: 300 })]),
     ]);
 
     const meta = index.get("acme/meta");
@@ -100,12 +81,12 @@ describe("buildTrendIndex", () => {
   it("tolerates mixed v1/v2 snapshots and missing ranks using only date/fullName/rank", () => {
     const index = buildTrendIndex([
       // v1：无富集字段。
-      day("2026-09-03", [repo("acme/mixed", 2)]),
+      day("2026-09-03", [repo("acme/mixed", { rank: 2 })]),
       // v2：富集字段齐全。
       day("2026-09-04", [
-        repo("acme/mixed", 1, { topics: ["ai"], license: "MIT", ownerAvatarUrl: "https://x/y.png" }),
+        repo("acme/mixed", { rank: 1, topics: ["ai"], license: "MIT", ownerAvatarUrl: "https://x/y.png" }),
         // 某天缺 rank：不参与峰值计算，也不应崩溃。
-        repo("acme/norank", undefined, { stars: 5 }),
+        repo("acme/norank", { rank: undefined, stars: 5 }),
       ]),
     ]);
 
@@ -124,9 +105,9 @@ describe("buildTrendIndex", () => {
 
   it("computes streaks and peak on any prefix slice, for per-day badges", () => {
     const days = [
-      day("2026-05-01", [repo("acme/riser", 5)]),
-      day("2026-05-02", [repo("acme/riser", 3)]),
-      day("2026-05-03", [repo("acme/riser", 1)]),
+      day("2026-05-01", [repo("acme/riser", { rank: 5 })]),
+      day("2026-05-02", [repo("acme/riser", { rank: 3 })]),
+      day("2026-05-03", [repo("acme/riser", { rank: 1 })]),
     ];
 
     // 第一天：刚上榜，无徽标（currentStreak 1，峰值即当日名次）。
@@ -152,7 +133,7 @@ describe("buildTrendIndex", () => {
     const index = buildTrendIndex([
       null,
       { date: "2026-06-01" },
-      day("2026-06-02", [null, {}, repo("acme/ok", 1)]),
+      day("2026-06-02", [null, {}, repo("acme/ok", { rank: 1 })]),
     ]);
 
     assert.equal(index.size, 1);

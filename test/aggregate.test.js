@@ -7,35 +7,7 @@ import {
   rollingWindow,
   weekly,
 } from "../src/aggregate.js";
-
-function day(date, repos) {
-  return { date, repos };
-}
-
-function repo(
-  fullName,
-  {
-    starsToday = 10,
-    stars = 1000,
-    rank = 1,
-    language = "TypeScript",
-    ...rest
-  } = {},
-) {
-  const [owner, name] = fullName.split("/");
-  return {
-    rank,
-    owner,
-    name,
-    fullName,
-    url: `https://github.com/${fullName}`,
-    description: `${fullName} desc`,
-    language,
-    stars,
-    starsToday,
-    ...rest,
-  };
-}
+import { day, repo } from "./helpers.js";
 
 describe("rollingWindow", () => {
   it("ends at the latest snapshot and spans calendar days across a month boundary", () => {

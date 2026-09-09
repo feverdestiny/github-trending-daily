@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { fetchTrendingHtml, runFetch } from "../src/fetch-trending.js";
+import { tmpDataDir } from "./helpers.js";
 
 /** 造一个 >=200 字符的合法趋势页（响应体过短会被视为失败）。 */
 const validHtml = `<!DOCTYPE html><html><body><!-- ${"x".repeat(200)} -->
@@ -31,10 +30,6 @@ function fakeFetch(script) {
     return step;
   };
   return { fetch, calls };
-}
-
-function tmpDataDir() {
-  return join(mkdtempSync(join(tmpdir(), "trending-fetch-")), "data");
 }
 
 /** 假 GitHub API 客户端（注入点）：记录调用并回放固定元数据或错误。 */
