@@ -40,6 +40,11 @@ jobs:
         env:
           # 供 GitHub REST API 元数据富集使用（topics/license/作者头像）。
           GITHUB_TOKEN: ${{ github.token }}
+          # 可选：AI 一句话导读（前 5 名，任意 OpenAI 兼容端点）。
+          # 三个 secret 都未设置/为空时功能整体关闭，站点照常生成。
+          TLDR_API_KEY: ${{ secrets.TLDR_API_KEY }}
+          TLDR_BASE_URL: ${{ secrets.TLDR_BASE_URL }}
+          TLDR_MODEL: ${{ secrets.TLDR_MODEL }}
 
       - name: Commit data snapshots
         run: |

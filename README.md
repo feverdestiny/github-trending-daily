@@ -121,3 +121,21 @@ https://feverdestiny.github.io/github-trending-daily/feed.xml
 把上面的地址粘贴进任意 RSS/Atom 阅读器（如 Feedly、Inoreader、NetNewsWire、Folo）即可订阅，每天榜单更新后自动收到最新一期。也可以在浏览器里直接打开站点首页，`<head>` 中带有 `<link rel="alternate" type="application/atom+xml">`，多数阅读器扩展能自动发现。
 
 Fork 自部署时，feed 里的绝对链接来自生成器的 `siteUrl` 选项（默认是本仓库的 Pages 地址）：在调用 `generateSite({ siteUrl })` 时传入你自己的站点地址即可。
+## 可选：AI 一句话导读
+
+站点可以为每日榜单**前 5 名**各生成一句中文导读（它是什么、为什么值得关注），显示在卡片上并随当日快照永久缓存。该功能**默认关闭**——不配置时零调用、零成本，站点照常生成。
+
+**启用方式**：在仓库 **Settings → Secrets and variables → Actions** 配置 repository secrets：
+
+| Secret | 必填 | 说明 |
+| --- | --- | --- |
+| `TLDR_API_KEY` | 是 | 存在即启用；未设置/留空则功能整体关闭 |
+| `TLDR_BASE_URL` | 否 | OpenAI 兼容端点根路径，默认 `https://api.openai.com/v1` |
+| `TLDR_MODEL` | 否 | 模型名，默认 `gpt-4o-mini` |
+
+**服务商兼容性**：任何 OpenAI 兼容的 `/chat/completions` 端点都可以（OpenAI、DeepSeek、Moonshot、GLM、硅基流动、本地 Ollama/vLLM 等），只需把 `TLDR_BASE_URL` 指向对应服务并配好模型名。
+
+**费用量级**：每天只对前 5 名发 **1 次批量请求**（每条导读限 ~80 token、低温生成），生成结果写入 `data/YYYY-MM-DD.json` 的 `tldr` 字段永久缓存，任何重跑不会重复调用。按默认模型估算每月 **远低于 $1**，费用由你自己的 key 承担。
+
+调用失败、未配置、或当日走示例数据降级时都会静默跳过，不影响当日发布；某仓库没有导读字段时卡片上不显示该区块。
+
