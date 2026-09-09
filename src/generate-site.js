@@ -8,6 +8,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildTrendIndex, sortTrendLeaderboard } from "./trend-archive.js";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -133,7 +134,7 @@ function page(title, cssHref, body) {
 }
 
 /**
- * @param {{ homeHref: string, archiveHref: string, current: "home" | "archive" | "day" }} nav
+ * @param {{ homeHref: string, archiveHref: string, trendsHref: string, current: "home" | "archive" | "day" | "trends" }} nav
  */
 function header(nav) {
   return `
@@ -144,6 +145,7 @@ function header(nav) {
         <nav class="nav" aria-label="站点导航">
           <a href="${nav.homeHref}"${nav.current === "home" ? ' aria-current="page"' : ""}>今日</a>
           <a href="${nav.archiveHref}"${nav.current === "archive" ? ' aria-current="page"' : ""}>归档</a>
+          <a href="${nav.trendsHref}"${nav.current === "trends" ? ' aria-current="page"' : ""}>趋势档案</a>
         </nav>
         <button id="theme-toggle" class="theme-toggle" type="button" aria-label="切换深浅色模式">${THEME_ICONS}</button>
       </div>
@@ -162,16 +164,22 @@ function footer() {
 
 /**
  * 单个仓库卡片：排名、全名外链、简介（钳制行数）、语言圆点、总星标、
- * 当日增速、话题标签、许可证、作者头像与 HN/Reddit 讨论外链。
+ * 当日增速、连续上榜徽标、话题标签、许可证、作者头像与 HN/Reddit 讨论外链。
  * v1 旧快照没有 topics/license/ownerAvatarUrl，对应区块直接省略。
  * @param {object} repo
+ * @param {object|null} [trend] 该仓库截至当日的上榜档案（来自 buildTrendIndex 前缀计算）；
+ *   currentStreak ≥ 2 时展示「连续上榜 N 天 · 峰值 #M」徽标
  */
-function repoCard(repo) {
+function repoCard(repo, trend = null) {
   const name = escapeHtml(repo.fullName);
   const description = repo.description ? escapeHtml(repo.description) : "暂无简介";
   const language = repo.language
     ? `<span class="lang"><i class="dot" style="--hue:${languageHue(repo.language)}" aria-hidden="true"></i>${escapeHtml(repo.language)}</span>`
     : `<span class="lang muted">未标注语言</span>`;
+  const streak =
+    trend && trend.currentStreak >= 2
+      ? `<span class="streak">连续上榜 ${escapeHtml(trend.currentStreak)} 天 · 峰值 #${trend.bestRank == null ? "?" : escapeHtml(trend.bestRank)}</span>`
+      : "";
   const topics = Array.isArray(repo.topics) && repo.topics.length
     ? `<ul class="topics">${repo.topics
         .map((topic) => `<li class="topic">${escapeHtml(topic)}</li>`)
@@ -188,7 +196,7 @@ function repoCard(repo) {
       <article class="card">
         <div class="card-head">
           <span class="rank" aria-label="排名 ${Number(repo.rank) || ""}">${Number(repo.rank) || ""}</span>
-          <h2 class="repo"><a href="${escapeHtml(repo.url)}" target="_blank" rel="noreferrer">${name}</a></h2>${avatar}
+          <h2 class="repo"><a href="${escapeHtml(repo.url)}" target="_blank" rel="noreferrer">${name}</a></h2>${streak}${avatar}
         </div>
         <p class="desc">${description}</p>
         ${topics}
@@ -206,22 +214,27 @@ function repoCard(repo) {
 
 /**
  * @param {object} digest
+ * @param {Map<string, object>|null} [trends] fullName → 截至当日的上榜档案
  */
-function repoCards(digest) {
+function repoCards(digest, trends = null) {
   if (!digest.repos?.length) {
     return `<p class="empty">当日暂无数据。</p>`;
   }
 
-  return digest.repos.map((repo) => repoCard(repo)).join("\n");
+  return digest.repos
+    .map((repo) => repoCard(repo, trends ? trends.get(repo.fullName) ?? null : null))
+    .join("\n");
 }
 
 /**
  * @param {object} digest
  * @param {string} heading
- * @param {{ homeHref: string, archiveHref: string, current: "home" | "day" }} nav
+ * @param {{ homeHref: string, archiveHref: string, trendsHref: string, current: "home" | "day" }} nav
  * @param {string} extraBanner
+ * @param {string} afterList
+ * @param {Map<string, object>|null} [trends] 传入时为 currentStreak ≥ 2 的仓库渲染连续上榜徽标
  */
-function listPage(digest, heading, nav, extraBanner = "", afterList = "") {
+function listPage(digest, heading, nav, extraBanner = "", afterList = "", trends = null) {
   const sampleBanner = digest.sample
     ? `<p class="banner sample">当前为<strong>示例数据</strong>，不是当天的线上抓取结果。</p>`
     : "";
@@ -240,7 +253,7 @@ function listPage(digest, heading, nav, extraBanner = "", afterList = "") {
       ${extraBanner}
     </section>
     <section class="cards" aria-label="仓库榜单">
-      ${repoCards(digest)}
+      ${repoCards(digest, trends)}
     </section>
     ${afterList}
   </main>
@@ -321,7 +334,7 @@ function archiveBody(digests, pageNum, pageCount) {
       : "";
 
   return `
-      ${header({ homeHref: pageNum === 1 ? "../" : "../../", archiveHref: pageNum === 1 ? "./" : "../../archive/", current: "archive" })}
+      ${header({ homeHref: pageNum === 1 ? "../" : "../../", archiveHref: pageNum === 1 ? "./" : "../../archive/", trendsHref: pageNum === 1 ? "../trends/" : "../../../trends/", current: "archive" })}
       <main class="wrap">
         <section class="hero">
           <p class="eyebrow">归档 · 按月分组</p>
@@ -332,6 +345,69 @@ function archiveBody(digests, pageNum, pageCount) {
         ${pager}
       </main>
       ${footer()}`;
+}
+
+/**
+ * "历史最热"总榜单个卡片：榜单名次 + 仓库身份 + 跨日趋势统计行。
+ * 复用日榜卡片的视觉结构（rank/repo/desc/meta/card-foot）。
+ * @param {object} entry buildTrendIndex 产出的上榜档案
+ * @param {number} position 榜单位次（0 起）
+ */
+function trendCard(entry, position) {
+  const peak =
+    entry.bestRank == null ? "峰值未知" : `峰值 #${escapeHtml(entry.bestRank)}`;
+  const stats = `累计上榜 ${escapeHtml(entry.totalDays)} 天 · ${peak} · 最长连续 ${escapeHtml(entry.longestStreak)} 天 · 最近上榜 ${escapeHtml(entry.lastSeen)}`;
+  const language = entry.language
+    ? `<span class="lang"><i class="dot" style="--hue:${languageHue(entry.language)}" aria-hidden="true"></i>${escapeHtml(entry.language)}</span>`
+    : `<span class="lang muted">未标注语言</span>`;
+
+  return `
+      <article class="card">
+        <div class="card-head">
+          <span class="rank" aria-label="历史最热第 ${position + 1} 名">${position + 1}</span>
+          <h2 class="repo"><a href="${escapeHtml(entry.url || `https://github.com/${entry.fullName}`)}" target="_blank" rel="noreferrer">${escapeHtml(entry.fullName)}</a></h2>
+        </div>
+        <p class="desc">${entry.description ? escapeHtml(entry.description) : "暂无简介"}</p>
+        <div class="meta">
+          ${language}
+          <span class="stars">★ ${formatCount(entry.stars)}</span>
+        </div>
+        <div class="card-foot">
+          <span class="trend-stats">${stats}</span>
+        </div>
+      </article>`;
+}
+
+/**
+ * 趋势档案页（/trends/）：全部历史快照聚合出的"历史最热"总榜。
+ * 历史不足 2 天时给出友好的积累中提示（一天的快照算不出趋势）。
+ * @param {Map<string, object>} trendIndex buildTrendIndex 的全部历史档案
+ * @param {number} historyDays 已收录的历史天数
+ */
+function trendsBody(trendIndex, historyDays) {
+  const entries = sortTrendLeaderboard([...trendIndex.values()]);
+  const lede =
+    historyDays < 2
+      ? `已收录 ${historyDays} 天快照。`
+      : `已收录 ${historyDays} 天快照 · ${entries.length} 个仓库曾上榜，按累计上榜天数排序。`;
+  const leaderboard =
+    historyDays < 2
+      ? `<p class="empty">档案还在积累中：趋势统计至少需要两天的历史快照。可以先到 <a href="../archive/">归档</a> 看看已收录的日报。</p>`
+      : `<section class="cards" aria-label="历史最热榜单">
+          ${entries.map((entry, position) => trendCard(entry, position)).join("\n")}
+        </section>`;
+
+  return `
+  ${header({ homeHref: "../", archiveHref: "../archive/", trendsHref: "./", current: "trends" })}
+  <main class="wrap">
+    <section class="hero">
+      <p class="eyebrow">上榜档案 · 历史最热</p>
+      <h1>趋势档案</h1>
+      <p class="lede">${lede}</p>
+    </section>
+    ${leaderboard}
+  </main>
+  ${footer()}`;
 }
 
 export const SITE_CSS = `/* GitHub 每日热门：零框架设计系统。全部主题色走 CSS 自定义属性，
@@ -619,6 +695,21 @@ html[data-theme="dark"] .icon-moon { display: none; }
 .discuss { white-space: nowrap; }
 .discuss a { font-weight: 600; }
 
+/* 连续上榜徽标（单日页卡片）与趋势统计行（趋势档案页） */
+.streak {
+  flex: none;
+  padding: 2px 9px;
+  border: 1px solid var(--warn-border);
+  border-radius: 999px;
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.trend-stats { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
 /* 归档：按月分组 + 分页 */
 .month-group { padding-bottom: 6px; }
 .month-heading {
@@ -706,6 +797,7 @@ export function generateSite(options = {}) {
   mkdirSync(join(siteDir, "assets"), { recursive: true });
   mkdirSync(join(siteDir, "archive"), { recursive: true });
   mkdirSync(join(siteDir, "days"), { recursive: true });
+  mkdirSync(join(siteDir, "trends"), { recursive: true });
 
   // 数据直出：每个 data/YYYY-MM-DD.json 原样复制为可直接访问的站点 URL。
   mkdirSync(join(siteDir, "data"), { recursive: true });
@@ -721,6 +813,9 @@ export function generateSite(options = {}) {
   const latest = digests[0];
   const dates = digests.map((item) => item.date);
 
+  // 上榜档案：全部历史快照聚合（供总榜页与首页徽标使用）。
+  const trendIndex = buildTrendIndex(digests);
+
   writeFileSync(
     join(siteDir, "index.html"),
     page(
@@ -729,10 +824,18 @@ export function generateSite(options = {}) {
       listPage(
         latest,
         `${latest.date} 今日热门`,
-        { homeHref: "./", archiveHref: "./archive/", current: "home" },
+        { homeHref: "./", archiveHref: "./archive/", trendsHref: "./trends/", current: "home" },
         `<p class="hero-links"><a href="./days/${latest.date}/">查看当日独立页面</a><a href="./data/${latest.date}.json">本日数据 JSON</a></p>`,
+        "",
+        trendIndex,
       ),
     ),
+  );
+
+  // 趋势档案："历史最热"总榜页。
+  writeFileSync(
+    join(siteDir, "trends/index.html"),
+    page("趋势档案 · GitHub 每日热门", "./assets/style.css", trendsBody(trendIndex, digests.length)),
   );
 
   // 归档分页：第 1 页 = archive/index.html（最新），其余在 archive/page/N/。
@@ -768,6 +871,9 @@ export function generateSite(options = {}) {
       </nav>
       <p class="data-line">本日数据 JSON：<a href="../../data/${escapeHtml(digest.date)}.json">${escapeHtml(digest.date)}.json</a></p>`;
 
+    // 单日页徽标用"截至当日"的前缀档案：digests 新到旧排序，slice(i) 即当日及更早的全部快照。
+    const prefixTrends = buildTrendIndex(digests.slice(i));
+
     writeFileSync(
       join(dayDir, "index.html"),
       page(
@@ -779,10 +885,12 @@ export function generateSite(options = {}) {
           {
             homeHref: "../../",
             archiveHref: "../../archive/",
+            trendsHref: "../../trends/",
             current: "day",
           },
           "",
           navLinks,
+          prefixTrends,
         ),
       ),
     );
@@ -794,11 +902,11 @@ export function generateSite(options = {}) {
       "未找到 · GitHub 每日热门",
       "./assets/style.css",
       `
-      ${header({ homeHref: "./", archiveHref: "./archive/", current: "home" })}
+      ${header({ homeHref: "./", archiveHref: "./archive/", trendsHref: "./trends/", current: "home" })}
       <main class="wrap">
         <section class="hero">
           <h1>页面不存在</h1>
-          <p class="lede"><a href="./">回到今日热门</a> · <a href="./archive/">查看归档</a></p>
+          <p class="lede"><a href="./">回到今日热门</a> · <a href="./archive/">查看归档</a> · <a href="./trends/">趋势档案</a></p>
         </section>
       </main>
       ${footer()}`,
