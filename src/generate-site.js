@@ -155,10 +155,10 @@ function page(title, cssHref, body, feedHref) {
 
 /**
  * 站点页头。homeHref 恒为带尾斜杠的站点根相对路径（"./"、"../"、"../../"），
- * 周/月/语言入口由它直接派生；趋势档案入口优先用 nav.trendsHref（归档深分页
+ * 周/月/语言/归档入口由它直接派生；趋势档案入口优先用 nav.trendsHref（归档深分页
  * 等目录层级更深的位置需显式传相对路径），未传时同样从 homeHref 派生。
  * 新增导航只需维护下面这一份 entries 清单。
- * @param {{ homeHref: string, archiveHref: string, trendsHref?: string, current: "home" | "archive" | "day" | "weekly" | "monthly" | "languages" | "trends" }} nav
+ * @param {{ homeHref: string, trendsHref?: string, current: "home" | "archive" | "day" | "weekly" | "monthly" | "languages" | "trends" }} nav
  */
 function header(nav) {
   const rootHref = nav.homeHref.endsWith("/") ? nav.homeHref : `${nav.homeHref}/`;
@@ -168,7 +168,7 @@ function header(nav) {
     { key: "monthly", href: `${rootHref}monthly/`, label: "月榜" },
     { key: "languages", href: `${rootHref}languages/`, label: "语言" },
     { key: "trends", href: nav.trendsHref ?? `${rootHref}trends/`, label: "趋势档案" },
-    { key: "archive", href: nav.archiveHref, label: "归档" },
+    { key: "archive", href: `${rootHref}archive/`, label: "归档" },
   ];
 
   return `
@@ -273,7 +273,7 @@ function repoCards(digest, trends = null) {
 /**
  * @param {object} digest
  * @param {string} heading
- * @param {{ homeHref: string, archiveHref: string, trendsHref: string, current: "home" | "day" }} nav
+ * @param {{ homeHref: string, trendsHref: string, current: "home" | "day" }} nav
  * @param {string} extraBanner
  * @param {string} afterList
  * @param {Map<string, object>|null} [trends] 传入时为 currentStreak ≥ 2 的仓库渲染连续上榜徽标
@@ -509,7 +509,7 @@ function archiveBody(digests, pageNum, pageCount) {
       : "";
 
   return `
-      ${header({ homeHref: pageNum === 1 ? "../" : "../../../", archiveHref: pageNum === 1 ? "./" : "../../../archive/", trendsHref: pageNum === 1 ? "../trends/" : "../../../trends/", current: "archive" })}
+      ${header({ homeHref: pageNum === 1 ? "../" : "../../../", trendsHref: pageNum === 1 ? "../trends/" : "../../../trends/", current: "archive" })}
       <main class="wrap">
         <section class="hero">
           <p class="eyebrow">归档 · 按月分组</p>
@@ -571,7 +571,7 @@ function trendsBody(trendIndex, historyDays) {
         </section>`;
 
   return `
-  ${header({ homeHref: "../", archiveHref: "../archive/", trendsHref: "./", current: "trends" })}
+  ${header({ homeHref: "../", trendsHref: "./", current: "trends" })}
   <main class="wrap">
     <section class="hero">
       <p class="eyebrow">上榜档案 · 历史最热</p>
@@ -639,7 +639,7 @@ export function generateSite(options = {}) {
       listPage(
         latest,
         `${latest.date} 今日热门`,
-        { homeHref: "./", archiveHref: "./archive/", trendsHref: "./trends/", current: "home" },
+        { homeHref: "./", trendsHref: "./trends/", current: "home" },
         `<p class="hero-links"><a href="./days/${latest.date}/">查看当日独立页面</a><a href="./data/${latest.date}.json">本日数据 JSON</a></p>`,
         "",
         trendIndex,
@@ -706,7 +706,6 @@ export function generateSite(options = {}) {
           digest.date,
           {
             homeHref: "../../",
-            archiveHref: "../../archive/",
             trendsHref: "../../trends/",
             current: "day",
           },
@@ -742,7 +741,7 @@ export function generateSite(options = {}) {
           windowDays,
           start: window.start,
           end: window.end,
-          nav: { homeHref: "../", archiveHref: "../archive/", current: key },
+          nav: { homeHref: "../", current: key },
           emptyMessage,
           sample: window.days.some((day) => day?.sample),
         }),
@@ -761,7 +760,7 @@ export function generateSite(options = {}) {
       "../assets/style.css",
       languagesIndexPage(
         boards,
-        { homeHref: "../", archiveHref: "../archive/", current: "languages" },
+        { homeHref: "../", current: "languages" },
         latest.date,
       ),
       feedHref,
@@ -777,7 +776,7 @@ export function generateSite(options = {}) {
         "../../assets/style.css",
         languageBoardPage(
           board,
-          { homeHref: "../../", archiveHref: "../../archive/", current: "languages" },
+          { homeHref: "../../", current: "languages" },
           latest.date,
         ),
         feedHref,
@@ -791,7 +790,7 @@ export function generateSite(options = {}) {
       "未找到 · GitHub 每日热门",
       "./assets/style.css",
       `
-      ${header({ homeHref: "./", archiveHref: "./archive/", trendsHref: "./trends/", current: "home" })}
+      ${header({ homeHref: "./", trendsHref: "./trends/", current: "home" })}
       <main class="wrap">
         <section class="hero">
           <h1>页面不存在</h1>
