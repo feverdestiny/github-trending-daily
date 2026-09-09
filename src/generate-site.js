@@ -78,6 +78,17 @@ function languageHue(language) {
 }
 
 /**
+ * 语言圆点 chip：有语言时按稳定色相着色，缺失时显示「未标注语言」。
+ * repoCard / aggregateCard / trendCard 三处共用，保证渲染逐字节一致。
+ * @param {object} entry 携带 language 字段的仓库/榜单条目
+ */
+function languageChip(entry) {
+  return entry.language
+    ? `<span class="lang"><i class="dot" style="--hue:${languageHue(entry.language)}" aria-hidden="true"></i>${escapeHtml(entry.language)}</span>`
+    : `<span class="lang muted">未标注语言</span>`;
+}
+
+/**
  * 读取 data 目录下全部日归档，按日期新到旧排序。
  * @param {string} dataDir
  */
@@ -204,9 +215,7 @@ function footer() {
 function repoCard(repo, trend = null) {
   const name = escapeHtml(repo.fullName);
   const description = repo.description ? escapeHtml(repo.description) : "暂无简介";
-  const language = repo.language
-    ? `<span class="lang"><i class="dot" style="--hue:${languageHue(repo.language)}" aria-hidden="true"></i>${escapeHtml(repo.language)}</span>`
-    : `<span class="lang muted">未标注语言</span>`;
+  const language = languageChip(repo);
   const streak =
     trend && trend.currentStreak >= 2
       ? `<span class="streak">连续上榜 ${escapeHtml(trend.currentStreak)} 天 · 峰值 #${trend.bestRank == null ? "?" : escapeHtml(trend.bestRank)}</span>`
@@ -309,9 +318,7 @@ function listPage(digest, heading, nav, extraBanner = "", afterList = "", trends
 function aggregateCard(entry, windowDays) {
   const name = escapeHtml(entry.fullName);
   const description = entry.description ? escapeHtml(entry.description) : "暂无简介";
-  const language = entry.language
-    ? `<span class="lang"><i class="dot" style="--hue:${languageHue(entry.language)}" aria-hidden="true"></i>${escapeHtml(entry.language)}</span>`
-    : `<span class="lang muted">未标注语言</span>`;
+  const language = languageChip(entry);
 
   return `
       <article class="card">
@@ -530,9 +537,7 @@ function trendCard(entry, position) {
   const peak =
     entry.bestRank == null ? "峰值未知" : `峰值 #${escapeHtml(entry.bestRank)}`;
   const stats = `累计上榜 ${escapeHtml(entry.totalDays)} 天 · ${peak} · 最长连续 ${escapeHtml(entry.longestStreak)} 天 · 最近上榜 ${escapeHtml(entry.lastSeen)}`;
-  const language = entry.language
-    ? `<span class="lang"><i class="dot" style="--hue:${languageHue(entry.language)}" aria-hidden="true"></i>${escapeHtml(entry.language)}</span>`
-    : `<span class="lang muted">未标注语言</span>`;
+  const language = languageChip(entry);
 
   return `
       <article class="card">
