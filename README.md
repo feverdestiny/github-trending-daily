@@ -109,3 +109,15 @@ Schema v2 起每条仓库记录还可能带可选富集字段：`topics`（话�
 - 单日页连续上榜徽标：连续上榜 ≥2 天的仓库会显示「连续上榜 N 天 · 峰值 #M」。N 和峰值都按"截至当天"的历史计算，回看历史页面时反映的是当时的状态。
 
 统计语义：连续上榜按自然日计算，跨月连续同样有效，缺一天即中断；峰值排名取历史上最好的名次；`currentStreak` 指结束于该仓库最近一次上榜日期的连续段，之后断更不会清零它，只会让"最近上榜"日期停在断更前。统计只用 `date` / `fullName` / `rank` 三个字段，因此对 v1/v2 混合快照天然兼容。
+
+## 订阅（Atom feed）
+
+站点提供一条 Atom feed，内容始终是最新一期榜单，每个条目包含排名、仓库全名、链接、简介、语言、总星标与当日新增星标：
+
+```
+https://feverdestiny.github.io/github-trending-daily/feed.xml
+```
+
+把上面的地址粘贴进任意 RSS/Atom 阅读器（如 Feedly、Inoreader、NetNewsWire、Folo）即可订阅，每天榜单更新后自动收到最新一期。也可以在浏览器里直接打开站点首页，`<head>` 中带有 `<link rel="alternate" type="application/atom+xml">`，多数阅读器扩展能自动发现。
+
+Fork 自部署时，feed 里的绝对链接来自生成器的 `siteUrl` 选项（默认是本仓库的 Pages 地址）：在调用 `generateSite({ siteUrl })` 时传入你自己的站点地址即可。
