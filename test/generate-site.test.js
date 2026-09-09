@@ -467,4 +467,112 @@ describe("generateSite", () => {
     assert.ok(!existsSync(join(siteDir, "etc")));
     assert.ok(existsSync(join(siteDir, "languages/lang/index.html"))); // "../.." → 回退 slug "lang"
   });
+
+  it("builds the trend leaderboard page and per-day streak badges from synthetic history", () => {
+    const root = mkdtempSync(join(tmpdir(), "trending-archive-"));
+    const dataDir = join(root, "data");
+    const siteDir = join(root, "site");
+    mkdirSync(dataDir);
+
+    const alpha = { ...sampleRepo, fullName: "acme/alpha", url: "https://github.com/acme/alpha" };
+    const beta = { ...sampleRepo, fullName: "acme/beta", url: "https://github.com/acme/beta" };
+    const gamma = { ...sampleRepo, fullName: "acme/gamma", url: "https://github.com/acme/gamma" };
+
+    // alpha 连续 4 天且名次一路爬升到 #1；beta 中间断一天；gamma 只出现最后一天。
+    writeDigest(dataDir, "2026-09-01", [{ ...alpha, rank: 5 }]);
+    writeDigest(dataDir, "2026-09-02", [
+      { ...alpha, rank: 3 },
+      { ...beta, rank: 1 },
+    ]);
+    writeDigest(dataDir, "2026-09-03", [{ ...alpha, rank: 2 }]);
+    writeDigest(dataDir, "2026-09-04", [
+      { ...alpha, rank: 1 },
+      { ...beta, rank: 4 },
+      { ...gamma, rank: 9 },
+    ]);
+
+    generateSite({ dataDir, siteDir });
+    const trends = readFileSync(join(siteDir, "trends/index.html"), "utf8");
+    const home = readFileSync(join(siteDir, "index.html"), "utf8");
+    const day1 = readFileSync(join(siteDir, "days/2026-09-01/index.html"), "utf8");
+    const day3 = readFileSync(join(siteDir, "days/2026-09-03/index.html"), "utf8");
+    const day4 = readFileSync(join(siteDir, "days/2026-09-04/index.html"), "utf8");
+
+    // 总榜：按累计天数排序（alpha 4 天 > beta 2 天 > gamma 1 天）
+    assert.match(trends, /<h1>趋势档案<\/h1>/);
+    assert.match(trends, /已收录 4 天快照 · 3 个仓库曾上榜/);
+    assert.ok(trends.indexOf("acme/alpha") < trends.indexOf("acme/beta"));
+    assert.ok(trends.indexOf("acme/beta") < trends.indexOf("acme/gamma"));
+    assert.match(trends, /累计上榜 4 天 · 峰值 #1 · 最长连续 4 天 · 最近上榜 2026-09-04/);
+    // beta 中间断一天：累计 2 天、峰值取历史最好名次、连续只有 1 天
+    assert.match(trends, /累计上榜 2 天 · 峰值 #1 · 最长连续 1 天 · 最近上榜 2026-09-04/);
+
+    // 导航：首页与趋势页互链，趋势页高亮当前项
+    assert.ok(home.includes('<a href="./trends/">趋势档案</a>'), "home nav should link to trends");
+    assert.ok(trends.includes('<a href="../">今日</a>'), "trends nav should link home relatively");
+    assert.ok(trends.includes('<a href="../archive/">归档</a>'), "trends nav should link archive relatively");
+    assert.ok(
+      trends.includes('<a href="./" aria-current="page">趋势档案</a>'),
+      "trends page should highlight the trends nav entry",
+    );
+
+    // 单日徽标按"截至当日"的前缀计算：第一天无徽标，第三天连续 3 天峰值只算到 #2
+    assert.doesNotMatch(day1, /连续上榜/);
+    assert.match(day3, /连续上榜 3 天 · 峰值 #2</);
+    assert.match(day4, /连续上榜 4 天 · 峰值 #1</);
+    // 当日首次上榜（gamma）与断天后回归（beta，current=1）都不带徽标
+    const day4Gamma = day4.slice(day4.indexOf("acme/gamma"));
+    assert.doesNotMatch(day4, /连续上榜 1 天/);
+    assert.ok(!day4Gamma.includes("连续上榜"));
+  });
+
+  it("shows a friendly empty state on the trends page before two days of history", () => {
+    const root = mkdtempSync(join(tmpdir(), "trending-archive-empty-"));
+    const dataDir = join(root, "data");
+    const siteDir = join(root, "site");
+    mkdirSync(dataDir);
+    writeDigest(dataDir, "2026-09-04", [sampleRepo]);
+
+    generateSite({ dataDir, siteDir });
+    const trends = readFileSync(join(siteDir, "trends/index.html"), "utf8");
+
+    assert.match(trends, /档案还在积累中/);
+    assert.match(trends, /href="\.\.\/archive\/"/);
+    assert.doesNotMatch(trends, /class="cards"/);
+    assert.doesNotMatch(trends, /累计上榜/);
+    assert.doesNotMatch(trends, /undefined/);
+  });
+
+  it("escapes untrusted text on the trend leaderboard and streak badges", () => {
+    const root = mkdtempSync(join(tmpdir(), "trending-archive-xss-"));
+    const dataDir = join(root, "data");
+    const siteDir = join(root, "site");
+    mkdirSync(dataDir);
+
+    const evil = {
+      ...sampleRepo,
+      fullName: "acme/<script>alert(1)</script>",
+      url: 'https://github.com/acme/x" onclick="alert(1)',
+      description: 'evil<span title="x">desc</span>',
+    };
+    writeDigest(dataDir, "2026-09-03", [{ ...evil, rank: 2 }]);
+    writeDigest(dataDir, "2026-09-04", [{ ...evil, rank: 1 }]);
+
+    generateSite({ dataDir, siteDir });
+    const trends = readFileSync(join(siteDir, "trends/index.html"), "utf8");
+    const day = readFileSync(join(siteDir, "days/2026-09-04/index.html"), "utf8");
+
+    // 恶意 fullName / description 在总榜页被转义（fullName 还被当作 Map 键精确匹配）
+    assert.doesNotMatch(trends, /<script>alert\(1\)<\/script>/);
+    assert.match(trends, /acme\/&lt;script&gt;alert\(1\)&lt;\/script&gt;</);
+    assert.match(trends, /evil&lt;span title=&quot;x&quot;&gt;desc&lt;\/span&gt;/);
+    // 链接属性被转义，无法闭合
+    assert.match(
+      trends,
+      /href="https:\/\/github\.com\/acme\/x&quot; onclick=&quot;alert\(1\)"/,
+    );
+    // 连续徽标正常出现在单日页，且不注入原始 HTML
+    assert.doesNotMatch(day, /<script>alert\(1\)<\/script>/);
+    assert.match(day, /连续上榜 2 天 · 峰值 #1</);
+  });
 });
