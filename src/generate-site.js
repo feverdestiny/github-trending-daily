@@ -571,6 +571,7 @@ html[data-theme="dark"] .icon-moon { display: none; }
   border-radius: 999px;
   background: var(--chip-bg);
   color: var(--chip-ink);
+  overflow-wrap: anywhere;
 }
 .meta {
   display: flex;
@@ -578,6 +579,7 @@ html[data-theme="dark"] .icon-moon { display: none; }
   align-items: center;
   gap: 8px 14px;
   margin-top: 12px;
+  margin-bottom: 12px;
   font-size: 13.5px;
   color: var(--muted);
 }
@@ -609,7 +611,6 @@ html[data-theme="dark"] .icon-moon { display: none; }
   gap: 6px 12px;
   margin-top: auto;
   padding-top: 10px;
-  margin-top: 12px;
   border-top: 1px dashed var(--line);
   font-size: 13px;
   color: var(--muted);
