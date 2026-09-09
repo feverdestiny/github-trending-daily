@@ -8,6 +8,12 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  FEED_PATH,
+  generateAtomFeed,
+  normalizeBaseUrl,
+  SITE_URL,
+} from "./rss.js";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -112,8 +118,9 @@ const THEME_ICONS = `<svg class="icon-moon" viewBox="0 0 24 24" width="15" heigh
  * @param {string} title
  * @param {string} cssHref
  * @param {string} body
+ * @param {string} feedHref 站点 feed 的绝对地址，作为每页 <head> 里的订阅发现链接。
  */
-function page(title, cssHref, body) {
+function page(title, cssHref, body, feedHref) {
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -123,6 +130,7 @@ function page(title, cssHref, body) {
   <meta name="description" content="GitHub 每日 Trending 归档：卡片式榜单、话题标签、增速与讨论外链">
   ${THEME_BOOTSTRAP}
   <link rel="stylesheet" href="${cssHref}">
+  <link rel="alternate" type="application/atom+xml" title="GitHub 每日热门" href="${escapeHtml(feedHref)}">
 </head>
 <body>
   ${body}
@@ -688,14 +696,19 @@ html[data-theme="dark"] .icon-moon { display: none; }
 
 /**
  * 根据 data/*.json 生成静态站点。
- * 链接全部使用相对路径，这样在 GitHub Pages 项目站
+ * 站内链接全部使用相对路径，这样在 GitHub Pages 项目站
  * （https://user.github.io/github-trending-daily/）和本地预览都能工作。
+ * 唯一例外是 feed：Atom 需要绝对地址，来自 siteUrl 选项（默认 SITE_URL，
+ * fork 后覆盖成自己的 Pages 地址），feed 同时写入 site/feed.xml 并以
+ * <link rel="alternate"> 出现在每一页的 <head> 里。
  *
- * @param {{ dataDir?: string, siteDir?: string }} [options]
+ * @param {{ dataDir?: string, siteDir?: string, siteUrl?: string }} [options]
  */
 export function generateSite(options = {}) {
   const dataDir = options.dataDir ?? join(repoRoot, "data");
   const siteDir = options.siteDir ?? join(repoRoot, "site");
+  const siteUrl = normalizeBaseUrl(options.siteUrl ?? SITE_URL);
+  const feedHref = `${siteUrl}${FEED_PATH}`;
   const digests = loadDigests(dataDir);
 
   if (digests.length === 0) {
@@ -717,6 +730,10 @@ export function generateSite(options = {}) {
 
   writeFileSync(join(siteDir, ".nojekyll"), "");
   writeFileSync(join(siteDir, "assets/style.css"), SITE_CSS);
+  writeFileSync(
+    join(siteDir, FEED_PATH),
+    generateAtomFeed({ days: digests, siteUrl }),
+  );
 
   const latest = digests[0];
   const dates = digests.map((item) => item.date);
@@ -732,6 +749,7 @@ export function generateSite(options = {}) {
         { homeHref: "./", archiveHref: "./archive/", current: "home" },
         `<p class="hero-links"><a href="./days/${latest.date}/">查看当日独立页面</a><a href="./data/${latest.date}.json">本日数据 JSON</a></p>`,
       ),
+      feedHref,
     ),
   );
 
@@ -750,6 +768,7 @@ export function generateSite(options = {}) {
         `归档${isRootPage ? "" : ` · 第 ${pageNum} 页`} · GitHub 每日热门`,
         isRootPage ? "../assets/style.css" : "../../assets/style.css",
         archiveBody(digests, pageNum, pageCount),
+        feedHref,
       ),
     );
   }
@@ -784,6 +803,7 @@ export function generateSite(options = {}) {
           "",
           navLinks,
         ),
+        feedHref,
       ),
     );
   }
@@ -802,8 +822,9 @@ export function generateSite(options = {}) {
         </section>
       </main>
       ${footer()}`,
+      feedHref,
     ),
   );
 
-  return { latestDate: latest.date, dates, siteDir };
+  return { latestDate: latest.date, dates, siteDir, siteUrl };
 }
