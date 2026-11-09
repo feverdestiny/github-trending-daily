@@ -1,0 +1,176 @@
+{
+  "date": "2026-11-09",
+  "fetchedAt": "2026-11-09T03:21:01.382Z",
+  "source": "https://github.com/trending?since=daily",
+  "repos": [
+    {
+      "rank": 1,
+      "owner": "sherlock-project",
+      "name": "sherlock",
+      "fullName": "sherlock-project/sherlock",
+      "url": "https://github.com/sherlock-project/sherlock",
+      "description": "Hunt down social media accounts by username across social networks",
+      "language": "Python",
+      "stars": 104134,
+      "starsToday": 2373,
+      "topics": [
+        "cli",
+        "cti",
+        "cybersecurity",
+        "forensics",
+        "hacktoberfest",
+        "information-gathering",
+        "infosec",
+        "linux",
+        "osint",
+        "pentesting",
+        "python",
+        "python3",
+        "reconnaissance",
+        "redteam",
+        "sherlock",
+        "tools"
+      ],
+      "license": "MIT",
+      "ownerAvatarUrl": "https://avatars.githubusercontent.com/u/48293496?v=4"
+    },
+    {
+      "rank": 2,
+      "owner": "dsx-ai-factory",
+      "name": "nvke",
+      "fullName": "dsx-ai-factory/nvke",
+      "url": "https://github.com/dsx-ai-factory/nvke",
+      "description": "NVIDIA Kubernetes Engine (NVKE). A management plane for GPU Kubernetes on bare metal.",
+      "language": "Go",
+      "stars": 897,
+      "starsToday": 345,
+      "topics": [
+        "bare-metal",
+        "cluster-api",
+        "gpu",
+        "kubernetes",
+        "nvidia"
+      ],
+      "license": "Apache-2.0",
+      "ownerAvatarUrl": "https://avatars.githubusercontent.com/u/311157577?v=4"
+    },
+    {
+      "rank": 3,
+      "owner": "milind-soni",
+      "name": "OpenMausBot",
+      "fullName": "milind-soni/OpenMausBot",
+      "url": "https://github.com/milind-soni/OpenMausBot",
+      "description": "Open-source Grok Bot alternative with a virtual machine that bots can use",
+      "language": "TypeScript",
+      "stars": 18503,
+      "starsToday": 1439,
+      "topics": [
+        "ai-agents",
+        "claude-code",
+        "codex",
+        "computer-use",
+        "docker",
+        "electron",
+        "grok",
+        "grok-bot",
+        "grok-bot-alternative",
+        "self-hosted",
+        "typescript"
+      ],
+      "license": "Apache-2.0",
+      "ownerAvatarUrl": "https://avatars.githubusercontent.com/u/46266943?v=4"
+    },
+    {
+      "rank": 4,
+      "owner": "anthropics",
+      "name": "claude-quickstarts",
+      "fullName": "anthropics/claude-quickstarts",
+      "url": "https://github.com/anthropics/claude-quickstarts",
+      "description": "A collection of projects designed to help developers quickly get started with building deployable applications using the Claude API",
+      "language": "Python",
+      "stars": 19504,
+      "starsToday": 32,
+      "topics": [],
+      "license": "MIT",
+      "ownerAvatarUrl": "https://avatars.githubusercontent.com/u/76263028?v=4"
+    },
+    {
+      "rank": 5,
+      "owner": "vercel-labs",
+      "name": "agent-browser",
+      "fullName": "vercel-labs/agent-browser",
+      "url": "https://github.com/vercel-labs/agent-browser",
+      "description": "Browser automation CLI for AI agents",
+      "language": "Rust",
+      "stars": 47751,
+      "starsToday": 815,
+      "topics": [],
+      "license": "Apache-2.0",
+      "ownerAvatarUrl": "https://avatars.githubusercontent.com/u/108547162?v=4"
+    },
+    {
+      "rank": 6,
+      "owner": "meta",
+      "name": "astryx",
+      "fullName": "meta/astryx",
+      "url": "https://github.com/meta/astryx",
+      "description": "An open source design system that's fully customizable and agent ready",
+      "language": "TypeScript",
+      "stars": 17173,
+      "starsToday": 875,
+      "topics": [],
+      "license": "MIT",
+      "ownerAvatarUrl": "https://avatars.githubusercontent.com/u/69631?v=4"
+    },
+    {
+      "rank": 7,
+      "owner": "anthropics",
+      "name": "skills",
+      "fullName": "anthropics/skills",
+      "url": "https://github.com/anthropics/skills",
+      "description": "Public repository for Agent Skills",
+      "language": "Python",
+      "stars": 189771,
+      "starsToday": 792,
+      "topics": [
+        "agent-skills"
+      ],
+      "license": null,
+      "ownerAvatarUrl": "https://avatars.githubusercontent.com/u/76263028?v=4"
+    },
+    {
+      "rank": 8,
+      "owner": "google-deepmind",
+      "name": "mujoco",
+      "fullName": "google-deepmind/mujoco",
+      "url": "https://github.com/google-deepmind/mujoco",
+      "description": "Multi-Joint dynamics with Contact. A general purpose physics simulator.",
+      "language": "C++",
+      "stars": 16487,
+      "starsToday": 41,
+      "topics": [
+        "mujoco",
+        "physics",
+        "robotics"
+      ],
+      "license": "Apache-2.0",
+      "ownerAvatarUrl": "https://avatars.githubusercontent.com/u/8596759?v=4"
+    },
+    {
+      "rank": 9,
+      "owner": "ranxianglei",
+      "name": "billion-context",
+      "fullName": "ranxianglei/billion-context",
+      "url": "https://github.com/ranxianglei/billion-context",
+      "description": "A context-compression plugin for month-long single sessions (billions of tokens) ,small context windows (a 100K context is enough) and token savings (5x fewer tokens) .上下文压缩插件，月级长会话会话， 兼顾小窗口(100k上下文足矣)省token(省5倍token) . billion-context is all you need",
+      "language": "TypeScript",
+      "stars": 5263,
+      "starsToday": 460,
+      "topics": [
+        "dsh-plugin"
+      ],
+      "license": null,
+      "ownerAvatarUrl": "https://avatars.githubusercontent.com/u/12445698?v=4"
+    }
+  ]
+}
